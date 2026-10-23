@@ -24,7 +24,7 @@ public func bugPrompt(
     let thread = Thread.current
     return """
         Please report to:
-            https://github.com/nikitabobko/AeroSpace/discussions/categories/potential-bugs
+            https://github.com/emrecaglarid/nanopress/issues
             Please describe what you did to trigger this error
 
         Message: \(_message)
@@ -59,9 +59,9 @@ public func dieT<T>(
     if !isUnitTest && isServer {
         showMessageInGui(
             filenameIfConsoleApp: recursionDetectorDuringTermination
-                ? "aerospace-runtime-error-recursion.txt"
-                : "aerospace-runtime-error.txt",
-            title: "AeroSpace Runtime Error",
+                ? "nanopress-runtime-error-recursion.txt"
+                : "nanopress-runtime-error.txt",
+            title: "nanopress Runtime Error",
             message: message,
         )
     }

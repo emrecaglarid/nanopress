@@ -15,9 +15,9 @@ let package = Package(
     platforms: [.macOS(.v13)],
     // Products define the executables and libraries a package produces, making them visible to other packages.
     products: [
-        .executable(name: "aerospace", targets: ["Cli"]),
+        .executable(name: "nanopress", targets: ["Cli"]),
         // Don't use this build for release, use xcode instead
-        .executable(name: "AeroSpaceApp", targets: ["AeroSpaceApp"]),
+        .executable(name: "NanopressApp", targets: ["NanopressApp"]),
         // We only need to expose this as a product for xcode
         .library(name: "AppBundle", targets: ["AppBundle"]),
     ],
@@ -56,7 +56,7 @@ let package = Package(
             swiftSettings: swiftSettings,
         ),
         .executableTarget(
-            name: "AeroSpaceApp",
+            name: "NanopressApp",
             dependencies: [
                 .target(name: "AppBundle"),
             ],

@@ -1,0 +1,88 @@
+// The nanopress app icon: a tiled screen where one tile is the blue landing slot of a drop.
+// Render at 1024 x 1024 into resources/Assets.xcassets/AppIcon.appiconset/icon.png
+
+appIcon = frame {
+  left: 0px,
+  top: 0px,
+  width: 1024px,
+  height: 1024px,
+  children: plate,
+
+  // macOS icon grid: an 824px plate centered on the 1024px canvas
+  plate = frame {
+    left: 100px,
+    top: 100px,
+    width: 824px,
+    height: 824px,
+    fill: {
+      linear-gradient: {
+        angle: 180deg,
+        stops: [
+          stop(0%, rgb(16.86%, 20.39%, 27.0588%)),
+          stop(100%, rgb(7.84%, 9.8%, 13.33%))
+        ]
+      }
+    },
+    border: {color: rgb(100%, 100%, 100%, 12.1569%), width: 2px},
+    shadow: {
+      drop-shadow: {
+        color: rgb(0%, 0%, 0%, 34.9%),
+        offset: point(0px, 12px),
+        blur-radius: 24px
+      }
+    },
+    corner-radius: 185px,
+    corner-smoothing: 0.6,
+    overflow: .visible,
+    children: [leftTile, topRightTile, landingTile],
+
+    leftTile = frame {
+      left: 104px,
+      top: 104px,
+      width: 288px,
+      height: 616px,
+      fill: rgb(100%, 100%, 100%, 18.0392%),
+      border: {color: rgb(100%, 100%, 100%, 34.9%), width: 6px},
+      corner-radius: 44px,
+      corner-smoothing: 0.6
+    }
+
+    topRightTile = frame {
+      left: 432px,
+      top: 104px,
+      width: 288px,
+      height: 288px,
+      fill: rgb(100%, 100%, 100%, 18.0392%),
+      border: {color: rgb(100%, 100%, 100%, 34.9%), width: 6px},
+      corner-radius: 44px,
+      corner-smoothing: 0.6
+    }
+
+    // Where the dragged window lands
+    landingTile = frame {
+      left: 432px,
+      top: 432px,
+      width: 288px,
+      height: 288px,
+      fill: {
+        linear-gradient: {
+          angle: 180deg,
+          stops: [
+            stop(0%, rgb(23.92%, 60.78%, 100%)),
+            stop(100%, rgb(3.92%, 42.35%, 100%))
+          ]
+        }
+      },
+      border: {color: rgb(61.1765%, 79.6078%, 100%), width: 6px},
+      shadow: {
+        drop-shadow: {
+          color: rgb(3.92%, 51.76%, 100%, 54.9%),
+          offset: point(0px, 0px),
+          blur-radius: 48px
+        }
+      },
+      corner-radius: 44px,
+      corner-smoothing: 0.6
+    }
+  }
+}

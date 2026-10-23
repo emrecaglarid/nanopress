@@ -1,3 +1,5 @@
+<img src="./resources/Assets.xcassets/AppIcon.appiconset/icon.png" width="128" align="right" alt="">
+
 # nanopress
 
 A tiling window manager for macOS that you drive with the mouse. Drag a window by its title bar, see exactly where it will land, let go.
@@ -35,17 +37,19 @@ You need macOS and Swift 6.
 
 ```sh
 swift build
-.build/debug/AeroSpaceApp
+.build/debug/NanopressApp
 ```
 
-Grant Accessibility access when macOS asks. Run the tests with `swift test`.
+Grant Accessibility access when macOS asks. Run the tests with `swift test`. The command line tool is `.build/debug/nanopress`.
+
+The config file is `~/.nanopress.toml` or `~/.config/nanopress/nanopress.toml`. If neither exists, nanopress reads your AeroSpace config, so switching over keeps your settings. Callback environment variables keep their `AEROSPACE_` names.
 
 ## Design
 
-The overlay's UI is in [`design/`](./design) as Elyx files: the hover card, the regions, the icons, and a mock desktop that puts them together. Edit them there, then copy the changes into [`DropZoneOverlay.swift`](./Sources/AppBundle/ui/DropZoneOverlay.swift).
+The overlay's UI and the app icon are in [`design/`](./design) as Elyx files: the hover card, the regions, the icons, and a mock desktop that puts them together. Edit them there, then copy the changes into [`DropZoneOverlay.swift`](./Sources/AppBundle/ui/DropZoneOverlay.swift).
 
 ## Credits
 
-nanopress is built on [AeroSpace](https://github.com/nikitabobko/AeroSpace) by Nikita Bobko. Its [docs](https://nikitabobko.github.io/AeroSpace/guide) still describe the config file, commands and workspaces, which all work the same here.
+nanopress is built on [AeroSpace](https://github.com/nikitabobko/AeroSpace) by Nikita Bobko. Its [docs](https://nikitabobko.github.io/AeroSpace/guide) still describe the config file, commands and workspaces, which all work the same here. Read `aerospace` as `nanopress` in commands.
 
 MIT licensed. See [LICENSE.txt](./LICENSE.txt) and [legal/](./legal).

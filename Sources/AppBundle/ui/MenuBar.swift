@@ -45,7 +45,7 @@ public func menuBar(viewModel: TrayMenuModel) -> some Scene { // todo should it 
                 NSWorkspace.shared.open(URL(string: "https://github.com/sponsors/nikitabobko").orDie())
                 viewModel.sponsorshipMessage = sponsorshipPrompts.randomElement().orDie()
             } label: {
-                Text("Sponsor AeroSpace on GitHub")
+                Text("Sponsor AeroSpace, which nanopress is built on")
                 Text(viewModel.sponsorshipMessage)
             }
             Divider()
@@ -61,7 +61,7 @@ public func menuBar(viewModel: TrayMenuModel) -> some Scene { // todo should it 
             openConfigButton()
             reloadConfigButton(warningsAsErrors: false)
         } else {
-            Button("AeroSpace requires accessibility permission to move windows") {
+            Button("nanopress requires accessibility permission to move windows") {
                 viewModel.axPermissionStatus = .waitingWithPrompt
             }
         }

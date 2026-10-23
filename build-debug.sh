@@ -8,5 +8,5 @@ source ./script/setup.sh
 swift build --build-tests "$@"
 
 rm -rf .debug && mkdir .debug
-cp -r .build/debug/aerospace .debug
-cp -r .build/debug/AeroSpaceApp .debug
+cp -r .build/debug/nanopress .debug
+cp -r .build/debug/NanopressApp .debug

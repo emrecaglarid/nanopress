@@ -1,0 +1,427 @@
+import "../tokens/colors.elyx" as colorTokens
+import "../tokens/lengths.elyx" as lengthTokens
+
+// MARK: Icons
+// rectangle.bottomhalf.inset.filled. The variants move the filled half
+export splitIcon = frame {
+  left: 40px,
+  top: 40px,
+  width: 20px,
+  height: 16px,
+  border: {color: colorTokens.colors.accent, width: 1.75px},
+  corner-radius: 4px,
+  corner-smoothing: 0.6,
+  children: half,
+
+  half = frame {
+    left: 3px,
+    top: 8px,
+    width: 14px,
+    height: 5px,
+    fill: colorTokens.colors.accent,
+    corner-radius: 1.5px
+  }
+}
+
+@variant
+export splitIconUp = frame : splitIcon {
+  left: 80px,
+  top: 40px,
+
+  half {
+    top: 3px
+  }
+}
+
+@variant
+export splitIconLeft = frame : splitIcon {
+  left: 120px,
+  top: 40px,
+
+  half {
+    left: 3px,
+    top: 3px,
+    width: 6px,
+    height: 10px
+  }
+}
+
+@variant
+export splitIconRight = frame : splitIcon {
+  left: 160px,
+  top: 40px,
+
+  half {
+    left: 11px,
+    top: 3px,
+    width: 6px,
+    height: 10px
+  }
+}
+
+// square.stack
+export stackIcon = frame {
+  left: 200px,
+  top: 40px,
+  width: 20px,
+  height: 18px,
+  children: [backCard, frontCard],
+
+  backCard = frame {
+    left: 3px,
+    top: 0px,
+    width: 14px,
+    height: 12px,
+    border: {color: colorTokens.colors.accent, width: 1.5px},
+    corner-radius: 3px
+  }
+
+  frontCard = frame {
+    left: 0px,
+    top: 4px,
+    width: 20px,
+    height: 14px,
+    fill: colorTokens.colors.material,
+    border: {color: colorTokens.colors.accent, width: 1.75px},
+    corner-radius: 3.5px,
+    corner-smoothing: 0.6
+  }
+}
+
+// arrow.left.arrow.right
+export swapIcon = frame {
+  left: 240px,
+  top: 40px,
+  width: 20px,
+  height: 18px,
+  children: [rightArrow, leftArrow],
+
+  rightArrow = text {
+    left: 2px,
+    top: -4px,
+    fill: colorTokens.colors.accent,
+    contents: "→",
+    font-size: 15,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+
+  leftArrow = text {
+    left: 2px,
+    top: 4px,
+    fill: colorTokens.colors.accent,
+    contents: "←",
+    font-size: 15,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+}
+
+// MARK: Key hint
+// "Hold ⌥ to swap". The keycap is the only filled part
+export keyHint = frame {
+  left: 40px,
+  top: 120px,
+  width: .auto,
+  height: .auto,
+  layout: {align-items: .center, item-gap: 4px},
+  children: [before, keycap, after],
+
+  before = text {
+    fill: colorTokens.colors.primary,
+    contents: "Hold",
+    font-size: 12,
+    font-family: "SF Pro Rounded",
+    font-style: "Medium"
+  }
+
+  keycap = frame {
+    width: .auto,
+    height: .auto,
+    min-width: 18px,
+    min-height: 18px,
+    layout: {justify-content: .center, align-items: .center},
+    fill: colorTokens.colors.key-fill,
+    corner-radius: lengthTokens.lengths.key-radius,
+    padding: [0px, 4px],
+    children: keyLabel,
+
+    keyLabel = text {
+      fill: colorTokens.colors.secondary,
+      contents: "⌥",
+      font-size: 11,
+      font-family: "SF Pro",
+      font-style: "Medium"
+    }
+  }
+
+  after = text {
+    fill: colorTokens.colors.primary,
+    contents: "to swap",
+    font-size: 12,
+    font-family: "SF Pro Rounded",
+    font-style: "Medium"
+  }
+}
+
+// "1 of 2  [Tab] next"
+export optionCounter = frame {
+  left: 200px,
+  top: 120px,
+  width: .auto,
+  height: .auto,
+  layout: {align-items: .center, item-gap: 6px},
+  children: [position, tabHint],
+
+  position = text {
+    fill: colorTokens.colors.primary,
+    contents: "1 of 2",
+    font-size: 12,
+    font-family: "SF Pro Rounded",
+    font-style: "Semibold"
+  }
+
+  tabHint = frame : keyHint {
+    left: 0px,
+    top: 0px,
+    overrides: [remove(keyHint.before)],
+
+    after {
+      contents: "next"
+    }
+
+    keycap {
+      keyLabel {
+        contents: "Tab"
+      }
+    }
+  }
+}
+
+// MARK: Hover card
+// The loudest thing on screen. Centered on the landing region
+export hoverCard = frame {
+  left: 40px,
+  top: 200px,
+  width: .auto,
+  height: .auto,
+  layout: {direction: .column, align-items: .center, item-gap: 6px},
+  fill: colorTokens.colors.material,
+  border: colorTokens.colors.card-border,
+  shadow: [
+    {
+      drop-shadow: {
+        color: colorTokens.colors.shadow-near,
+        offset: point(0px, 1px),
+        blur-radius: 1px
+      }
+    },
+    {
+      drop-shadow: {
+        color: colorTokens.colors.shadow-far,
+        offset: point(0px, 8px),
+        blur-radius: 16px
+      }
+    }
+  ],
+  filter: {type: .background-blur, radius: 30px},
+  corner-radius: lengthTokens.lengths.card-radius,
+  corner-smoothing: 0.6,
+  padding: [
+    lengthTokens.lengths.card-padding-y,
+    lengthTokens.lengths.card-padding-x
+  ],
+  children: titleRow,
+
+  titleRow = frame {
+    width: .auto,
+    height: .auto,
+    layout: {align-items: .center, item-gap: 8px},
+    children: [glyph, title],
+
+    glyph = frame : splitIcon {}
+
+    title = text {
+      fill: colorTokens.colors.primary,
+      contents: "Below Dia",
+      font-size: 16,
+      font-family: "SF Pro",
+      font-style: "Semibold"
+    }
+  }
+}
+
+// A split zone where Tab switches to a bigger target
+@variant
+export hoverCardWithOptions = frame : hoverCard {
+  left: 300px,
+  top: 200px,
+  overrides: [insert(counter, after = hoverCard.titleRow)],
+
+  counter = frame : optionCounter {
+    left: 0px,
+    top: 0px
+  }
+}
+
+// Middle of a tile
+@variant
+export hoverCardStack = frame : hoverCard {
+  left: 560px,
+  top: 200px,
+  overrides: [insert(hint, after = hoverCard.titleRow)],
+
+  titleRow {
+    overrides: [
+      insert(stackGlyph, after = .nil),
+      remove(hoverCard.titleRow.glyph)
+    ],
+
+    title {
+      contents: "Stack on Slack"
+    }
+  }
+
+  stackGlyph = frame : stackIcon {
+    left: 0px,
+    top: 0px
+  }
+
+  hint = frame : keyHint {
+    left: 0px,
+    top: 0px
+  }
+}
+
+// Middle of a tile with Option held
+@variant
+export hoverCardSwap = frame : hoverCard {
+  left: 840px,
+  top: 200px,
+  overrides: [insert(hint, after = hoverCard.titleRow)],
+
+  titleRow {
+    overrides: [
+      insert(swapGlyph, after = .nil),
+      remove(hoverCard.titleRow.glyph)
+    ],
+
+    title {
+      contents: "Swap with Slack"
+    }
+  }
+
+  swapGlyph = frame : swapIcon {
+    left: 0px,
+    top: 0px
+  }
+
+  hint = frame : keyHint {
+    left: 0px,
+    top: 0px,
+
+    before {
+      contents: "Release"
+    }
+
+    after {
+      contents: "to stack"
+    }
+  }
+}
+
+// MARK: Regions
+// Where the dragged window lands
+export landingRegion = frame {
+  left: 40px,
+  top: 360px,
+  width: 320px,
+  height: 200px,
+  fill: colorTokens.colors.landing-fill,
+  border: {color: colorTokens.colors.landing-border, width: 2px},
+  corner-radius: lengthTokens.lengths.region-radius,
+  corner-smoothing: 0.6
+}
+
+// Landing on a stack: the card behind peeks out at the top only
+export stackedLandingRegion = frame {
+  left: 424px,
+  top: 360px,
+  width: 320px,
+  height: 200px,
+  children: [backCard, frontCard],
+
+  backCard = frame {
+    left: 24px,
+    top: 0px,
+    width: 272px,
+    height: 12px,
+    fill: colorTokens.colors.stack-back-fill,
+    border: {
+      color: colorTokens.colors.stack-back-border,
+      width: 2px,
+      sides: [.top, .left, .right]
+    },
+    corner-radius: [
+      lengthTokens.lengths.region-radius,
+      lengthTokens.lengths.region-radius,
+      0px,
+      0px
+    ],
+    corner-smoothing: 0.6
+  }
+
+  frontCard = frame : landingRegion {
+    left: 0px,
+    top: 12px,
+    height: 188px
+  }
+}
+
+// A window that moves or resizes because of the drop, drawn where it ends up
+export ghostTile = frame {
+  left: 808px,
+  top: 360px,
+  width: 320px,
+  height: 200px,
+  layout: {justify-content: .center, align-items: .center},
+  fill: colorTokens.colors.ghost-fill,
+  border: {color: colorTokens.colors.ghost-border, width: 1.5px},
+  corner-radius: lengthTokens.lengths.region-radius,
+  corner-smoothing: 0.6,
+  children: nameTag,
+
+  // Quiet on purpose, so the hover card wins
+  nameTag = frame {
+    width: .auto,
+    height: .auto,
+    layout: {direction: .row},
+    fill: colorTokens.colors.name-tag-fill,
+    corner-radius: 100px,
+    padding: [5px, 10px],
+    children: name,
+
+    name = text {
+      fill: colorTokens.colors.secondary,
+      contents: "Slack",
+      font-size: 11,
+      font-family: "SF Pro"
+    }
+  }
+}
+
+// The empty tile the window was dragged out of. Drawn below the ghosts
+export originRegion = frame {
+  left: 1192px,
+  top: 360px,
+  width: 320px,
+  height: 200px,
+  fill: colorTokens.colors.origin-fill,
+  border: {
+    color: colorTokens.colors.origin-border,
+    width: 1.5px,
+    dash: [6px, 5px]
+  },
+  corner-radius: lengthTokens.lengths.region-radius,
+  corner-smoothing: 0.6
+}

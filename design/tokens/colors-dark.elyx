@@ -1,0 +1,29 @@
+import "./colors.elyx" as base
+
+@context(theme="dark")
+file {}
+
+export darkColors = tokens : base.colors {
+  primary: .white,
+  secondary: rgb(100%, 100%, 100%, 54.9%),
+  accent: rgb(3.92%, 51.76%, 100%),
+  material: rgb(16.47%, 16.47%, 16.47%, 85.098%),
+  key-fill: rgb(100%, 100%, 100%, 7.84%),
+  card-border: rgb(100%, 100%, 100%, 10.1961%),
+  landing-fill: rgb(3.92%, 51.76%, 100%, 16.0784%),
+  landing-border: rgb(3.92%, 51.76%, 100%, 90.1961%),
+  stack-back-fill: rgb(3.92%, 51.76%, 100%, 7.84%),
+  stack-back-border: rgb(3.92%, 51.76%, 100%, 40%),
+  ghost-fill: rgb(100%, 100%, 100%, 5.88%),
+  ghost-border: rgb(100%, 100%, 100%, 45.098%),
+  name-tag-fill: rgb(100%, 100%, 100%, 5.88%),
+  origin-fill: rgb(100%, 100%, 100%, 3.92%),
+  origin-border: rgb(100%, 100%, 100%, 34.9%),
+  shadow-far: rgb(0%, 0%, 0%, 40%),
+  wallpaper: rgb(16.86%, 20%, 25.098%),
+  menu-bar: rgb(11.76%, 11.76%, 11.76%, 70.1961%),
+  window: rgb(11.76%, 11.76%, 11.76%),
+  window-chrome: rgb(17.25%, 17.25%, 17.25%),
+  window-border: rgb(100%, 100%, 100%, 12.1569%),
+  window-shadow: rgb(0%, 0%, 0%, 40%)
+}

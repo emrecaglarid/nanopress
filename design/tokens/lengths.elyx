@@ -1,0 +1,9 @@
+// Overlay geometry. Mirrors the constants in Sources/AppBundle/ui/DropZoneOverlay.swift
+export lengths = tokens {
+  region-radius: 10,
+  stack-peek: 12,
+  card-radius: 15,
+  card-padding-x: 16,
+  card-padding-y: 11,
+  key-radius: 4
+}

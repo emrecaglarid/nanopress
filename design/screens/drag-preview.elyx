@@ -1,0 +1,178 @@
+import "../tokens/colors.elyx" as colorTokens
+import "../components/drop-overlay.elyx" as overlay
+
+desktop = frame {
+  left: 40px,
+  top: 40px,
+  width: 1440px,
+  height: 900px,
+  fill: colorTokens.colors.wallpaper,
+  overflow: .visible,
+  children: [
+    menuBar,
+    diaWindow,
+    slackWindow,
+    draggedWindow,
+    origin,
+    diaGhost,
+    slackGhost,
+    landing,
+    card
+  ],
+
+  menuBar = frame {
+    left: 0px,
+    top: 0px,
+    width: 1440px,
+    height: 24px,
+    fill: colorTokens.colors.menu-bar
+  }
+
+  // The real windows, before the drop
+  diaWindow = frame : appWindow {
+    left: 0px,
+    top: 24px,
+    width: 720px,
+    height: 876px,
+
+    titleBar {
+      windowTitle {
+        contents: "Dia"
+      }
+    }
+  }
+
+  slackWindow = frame : appWindow {
+    left: 720px,
+    top: 24px,
+    width: 720px,
+    height: 438px,
+
+    titleBar {
+      windowTitle {
+        contents: "Slack"
+      }
+    }
+  }
+
+  // The overlay
+  origin = frame : overlay.originRegion {
+    left: 724px,
+    top: 466px,
+    width: 712px,
+    height: 430px
+  }
+
+  diaGhost = frame : overlay.ghostTile {
+    left: 4px,
+    top: 28px,
+    width: 712px,
+    height: 430px,
+
+    nameTag {
+      name {
+        contents: "Dia"
+      }
+    }
+  }
+
+  slackGhost = frame : overlay.ghostTile {
+    left: 724px,
+    top: 28px,
+    width: 712px,
+    height: 868px
+  }
+
+  landing = frame : overlay.landingRegion {
+    left: 4px,
+    top: 466px,
+    width: 712px,
+    height: 430px
+  }
+
+  // Centered on the landing region
+  card = frame : overlay.hoverCardWithOptions {
+    left: 295px,
+    top: 648px
+  }
+
+  // The window under the cursor. The overlay panel floats above it
+  draggedWindow = frame : appWindow {
+    left: 420px,
+    top: 560px,
+    width: 520px,
+    height: 300px,
+    opacity: 0.9,
+
+    titleBar {
+      windowTitle {
+        contents: "Ghostty"
+      }
+    }
+  }
+}
+
+appWindow = frame {
+  left: 40px,
+  top: 1000px,
+  width: 400px,
+  height: 260px,
+  layout: {direction: .column},
+  fill: colorTokens.colors.window,
+  border: colorTokens.colors.window-border,
+  shadow: {
+    drop-shadow: {
+      color: colorTokens.colors.window-shadow,
+      offset: point(0px, 6px),
+      blur-radius: 18px
+    }
+  },
+  corner-radius: 12px,
+  corner-smoothing: 0.6,
+  children: titleBar,
+
+  titleBar = frame {
+    width: 100%,
+    height: 32px,
+    layout: {align-items: .center, item-gap: 8px},
+    fill: colorTokens.colors.window-chrome,
+    padding: [0px, 12px],
+    children: [trafficLights, windowTitle],
+
+    trafficLights = frame {
+      width: .auto,
+      height: .auto,
+      layout: {item-gap: 8px},
+      children: [closeLight, minimizeLight, zoomLight],
+
+      closeLight = frame {
+        width: 12px,
+        height: 12px,
+        fill: rgb(100%, 37.25%, 34.1176%),
+        corner-radius: 6px
+      }
+
+      minimizeLight = frame {
+        width: 12px,
+        height: 12px,
+        fill: rgb(99.6078%, 73.7255%, 18.0392%),
+        corner-radius: 6px
+      }
+
+      zoomLight = frame {
+        width: 12px,
+        height: 12px,
+        fill: rgb(15.6863%, 78.43%, 25.098%),
+        corner-radius: 6px
+      }
+    }
+
+    windowTitle = text {
+      fill: colorTokens.colors.secondary,
+      contents: "Window",
+      font-size: 13,
+      font-family: "SF Pro",
+      font-style: "Semibold"
+    }
+  }
+}

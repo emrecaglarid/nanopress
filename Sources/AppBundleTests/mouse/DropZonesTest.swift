@@ -120,6 +120,37 @@ final class DropZonesTest: XCTestCase {
         XCTAssertEqual(predicted.width, w1Width * 2, accuracy: 1)
     }
 
+    func testSplitGroupAlongItsOrientationTakesHalfOfIt() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        TestWindow.new(id: 0, parent: root)
+        let column = TilingContainer(parent: root, adaptiveWeight: 1, .v, .tiles, index: INDEX_BIND_LAST)
+        TestWindow.new(id: 1, parent: column)
+        TestWindow.new(id: 2, parent: column)
+        let w3 = TestWindow.new(id: 3, parent: workspace.floatingWindowsContainer)
+
+        applyDrop(PendingDrop(window: w3, workspace: workspace, op: .tile(targetWindowId: 2, .split(.down), level: 1)))
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([
+            .window(0),
+            .v_tiles([.window(1), .window(2), .window(3)]),
+        ]))
+        assertEquals(w3.getWeight(.v), 2)
+    }
+
+    func testSplitScreenWrapsRoot() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        TestWindow.new(id: 0, parent: root)
+        TestWindow.new(id: 1, parent: root)
+        let w2 = TestWindow.new(id: 2, parent: workspace.floatingWindowsContainer)
+
+        applyDrop(PendingDrop(window: w2, workspace: workspace, op: .tile(targetWindowId: 1, .split(.down), level: 1)))
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .v_tiles([
+            .h_tiles([.window(0), .window(1)]),
+            .window(2),
+        ]))
+    }
+
     func testDropOnEmptyWorkspace() {
         let workspace = Workspace.get(byName: name)
         let root = workspace.rootTilingContainer
@@ -136,7 +167,7 @@ final class DropZonesTest: XCTestCase {
     func testPreviewMatchesResultOnRandomTrees() async throws {
         var checkedDrops = 0
         for normalization in [false, true] {
-            for seed in 0 ..< 200 {
+            for seed in 0 ..< 300 {
                 setUpWorkspacesForTests()
                 config.enableNormalizationFlattenContainers = normalization
                 config.enableNormalizationOppositeOrientationForNestedContainers = normalization
@@ -152,7 +183,7 @@ final class DropZonesTest: XCTestCase {
                 let dragged = windows[rng.next(windows.count)]
                 let target = windows.filter { $0 != dragged }[rng.next(windows.count - 1)]
                 let zones: [DropZone] = [.stack, .swap, .split(.left), .split(.right), .split(.up), .split(.down)]
-                let drop = PendingDrop(window: dragged, workspace: workspace, op: .tile(targetWindowId: target.windowId, zones[rng.next(zones.count)]))
+                let drop = PendingDrop(window: dragged, workspace: workspace, op: .tile(targetWindowId: target.windowId, zones[rng.next(zones.count)], level: rng.next(3)))
                 let context = "seed: \(seed), normalization: \(normalization), drop: \(drop.op), dragged: \(dragged.windowId)"
 
                 guard let sim = simulate(drop) else { continue }

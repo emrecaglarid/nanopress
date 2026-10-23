@@ -1,0 +1,28 @@
+// Overlay colors. Mirrors the SwiftUI semantic colors in Sources/AppBundle/ui/DropZoneOverlay.swift:
+// primary is Color.primary, accent is Color.accentColor, the number is the opacity in percent
+export colors = tokens {
+  primary: .black,
+  secondary: rgb(0%, 0%, 0%, 50.1961%),
+  accent: rgb(0%, 47.84%, 100%),
+  material: rgb(96.47%, 96.47%, 96.47%, 85.098%),
+  key-fill: rgb(0%, 0%, 0%, 7.84%),
+  card-border: rgb(0%, 0%, 0%, 10.1961%),
+  landing-fill: rgb(0%, 47.84%, 100%, 16.0784%),
+  landing-border: rgb(0%, 47.84%, 100%, 90.1961%),
+  stack-back-fill: rgb(0%, 47.84%, 100%, 7.84%),
+  stack-back-border: rgb(0%, 47.84%, 100%, 40%),
+  ghost-fill: rgb(0%, 0%, 0%, 5.88%),
+  ghost-border: rgb(0%, 0%, 0%, 45.098%),
+  name-tag-fill: rgb(0%, 0%, 0%, 5.88%),
+  origin-fill: rgb(0%, 0%, 0%, 3.92%),
+  origin-border: rgb(0%, 0%, 0%, 34.9%),
+  shadow-near: rgb(0%, 0%, 0%, 7.84%),
+  shadow-far: rgb(0%, 0%, 0%, 18.0392%),
+  // The mock desktop around the overlay
+  wallpaper: rgb(78.82%, 82.7451%, 87.0588%),
+  menu-bar: rgb(100%, 100%, 100%, 70.1961%),
+  window: .white,
+  window-chrome: rgb(92.549%, 92.549%, 92.549%),
+  window-border: rgb(0%, 0%, 0%, 12.1569%),
+  window-shadow: rgb(0%, 0%, 0%, 14.9%)
+}

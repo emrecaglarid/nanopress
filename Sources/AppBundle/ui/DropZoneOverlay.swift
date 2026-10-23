@@ -5,8 +5,13 @@ import SwiftUI
 /// What the overlay shows while a window is dragged with the mouse.
 /// All rects are in global coordinates with the origin in the top left corner of the main monitor, same as Rect
 struct DropPreview: Equatable {
+    /// A split can target a group the hovered tile is at the edge of, instead of the tile itself
+    enum Group: Equatable {
+        case row, column, screen
+    }
+
     enum Action: Equatable {
-        case split(CardinalDirection)
+        case split(CardinalDirection, Group?)
         case stack
         case swap
         case moveToWorkspace(String)
@@ -24,10 +29,15 @@ struct DropPreview: Equatable {
     var action: Action
     var targetName: String?
     var monitorRect: CGRect
+    /// The empty tile the window was dragged out of
+    var originRect: CGRect?
     /// Where the dragged window ends up. It's the whole stack if the window ends up in one
     var landingRect: CGRect
     var landingStackCount: Int
     var ghosts: [Ghost]
+    /// Tab steps through the options when the cursor is where several drops are possible
+    var optionIndex: Int
+    var optionCount: Int
 }
 
 extension Rect {
@@ -113,6 +123,11 @@ private struct DropPreviewView: View {
     var body: some View {
         let landing = local(preview.landingRect).insetBy(dx: regionInset, dy: regionInset)
         ZStack(alignment: .topLeading) {
+            if let origin = preview.originRect {
+                OriginRegion()
+                    .placed(in: local(origin).insetBy(dx: regionInset, dy: regionInset))
+                    .transition(.opacity)
+            }
             ForEach(preview.ghosts) { ghost in
                 GhostTile(ghost: ghost)
                     .placed(in: local(ghost.rect).insetBy(dx: regionInset, dy: regionInset))
@@ -150,13 +165,23 @@ private struct GhostTile: View {
             .overlay(shape.strokeBorder(Color.primary.opacity(0.45), lineWidth: 1.5))
             .overlay {
                 Text(ghost.stackCount > 1 ? "\(ghost.name) +\(ghost.stackCount - 1)" : ghost.name)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(.regularMaterial, in: Capsule())
+                    .background(Color.primary.opacity(0.06), in: Capsule())
                     .fixedSize()
             }
+    }
+}
+
+/// Below the ghosts: the tiles that fill the gap are drawn on top of it
+private struct OriginRegion: View {
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: regionRadius, style: .continuous)
+        shape
+            .fill(Color.primary.opacity(0.04))
+            .overlay(shape.strokeBorder(Color.primary.opacity(0.35), style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])))
     }
 }
 
@@ -177,25 +202,33 @@ private struct DropHoverCard: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
                     .id(icon)
                     .transition(reduceMotion ? .opacity : iconTransition)
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
             }
             switch preview.action {
-                case .stack: ModifierHint(before: "Hold", after: "to swap")
-                case .swap: ModifierHint(before: "Release", after: "to stack")
+                case .stack: KeyHint(before: "Hold", key: "⌥", keyName: "Option", after: "to swap")
+                case .swap: KeyHint(before: "Release", key: "⌥", keyName: "Option", after: "to stack")
                 case .split, .moveToWorkspace: EmptyView()
             }
+            if preview.optionCount > 1 {
+                HStack(spacing: 6) {
+                    Text("\(preview.optionIndex + 1) of \(preview.optionCount)")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                    KeyHint(before: nil, key: "Tab", keyName: "Tab", after: "next")
+                }
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 1))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 1))
         .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
         .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
         .fixedSize()
@@ -205,22 +238,37 @@ private struct DropHoverCard: View {
 
     private var title: String {
         switch preview.action {
-            case .split(.left): "Left of \(targetName)"
-            case .split(.right): "Right of \(targetName)"
-            case .split(.up): "Above \(targetName)"
-            case .split(.down): "Below \(targetName)"
+            case .split(.left, .screen): "Left side of screen"
+            case .split(.right, .screen): "Right side of screen"
+            case .split(.up, .screen): "Top of screen"
+            case .split(.down, .screen): "Bottom of screen"
+            case .split(let direction, let group): splitTitle(direction, group)
             case .stack: "Stack on \(targetName)"
             case .swap: "Swap with \(targetName)"
             case .moveToWorkspace(let workspace): "Move to workspace \(workspace)"
         }
     }
 
+    private func splitTitle(_ direction: CardinalDirection, _ group: DropPreview.Group?) -> String {
+        let anchor = switch group {
+            case .row: "\(targetName)'s row"
+            case .column: "\(targetName)'s column"
+            case .screen, nil: targetName
+        }
+        return switch direction {
+            case .left: "Left of \(anchor)"
+            case .right: "Right of \(anchor)"
+            case .up: "Above \(anchor)"
+            case .down: "Below \(anchor)"
+        }
+    }
+
     private var icon: String {
         switch preview.action {
-            case .split(.left): "rectangle.lefthalf.inset.filled"
-            case .split(.right): "rectangle.righthalf.inset.filled"
-            case .split(.up): "rectangle.tophalf.inset.filled"
-            case .split(.down): "rectangle.bottomhalf.inset.filled"
+            case .split(.left, _): "rectangle.lefthalf.inset.filled"
+            case .split(.right, _): "rectangle.righthalf.inset.filled"
+            case .split(.up, _): "rectangle.tophalf.inset.filled"
+            case .split(.down, _): "rectangle.bottomhalf.inset.filled"
             case .stack: "square.stack"
             case .swap: "arrow.left.arrow.right"
             case .moveToWorkspace: "macwindow.on.rectangle"
@@ -234,22 +282,25 @@ private struct DropHoverCard: View {
     }
 }
 
-private struct ModifierHint: View {
-    let before: String
+private struct KeyHint: View {
+    let before: String?
+    let key: String
+    let keyName: String
     let after: String
 
     var body: some View {
         HStack(spacing: 4) {
-            Text(before)
-            Text("⌥")
-                .font(.system(size: 10, weight: .medium))
-                .frame(minWidth: 16, minHeight: 16)
+            if let before { Text(before) }
+            Text(key)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+                .frame(minWidth: 18, minHeight: 18)
                 .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                .accessibilityLabel("Option")
+                .accessibilityLabel(keyName)
             Text(after)
         }
-        .font(.system(size: 11))
-        .foregroundStyle(.secondary)
+        .font(.system(size: 12, weight: .medium, design: .rounded))
     }
 }
 

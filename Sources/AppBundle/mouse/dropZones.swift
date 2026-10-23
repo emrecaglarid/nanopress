@@ -1,5 +1,6 @@
 import AppKit
 import Common
+import HotKey
 
 /// Where a window dragged with the mouse lands relative to the tile under the cursor
 enum DropZone: Equatable {
@@ -12,7 +13,8 @@ enum DropZone: Equatable {
 
 /// Targets are window ids, so that a drop can be replayed on a fresh snapshot of the tree. See SimNode
 enum DropOp: Equatable {
-    case tile(targetWindowId: UInt32, DropZone)
+    /// `level` > 0 splits the group (container) that many levels above the tile instead of the tile itself
+    case tile(targetWindowId: UInt32, DropZone, level: Int = 0)
     case intoEmptyWorkspace
 }
 
@@ -24,17 +26,39 @@ struct PendingDrop {
 
 /// Fraction of the target window's width/height (measured from each edge) that counts as a split zone
 private let splitZoneFraction: CGFloat = 0.3
+/// Pushing the cursor this close to the screen edge (or into the menu bar or Dock) targets the whole screen
+private let screenEdgeSnapDistance: CGFloat = 12
 
 private struct DragSession {
     let windowId: UInt32
     let initialSize: CGSize?
     /// Dialogs (see isDialogHeuristic) are never tiled by a drop
     let isDialog: Bool
+    /// The tile the window was dragged out of. It stays empty until the drop. Nil if the window wasn't tiled on its own
+    let origin: (rect: Rect, workspace: Workspace)?
     var isResize = false
+    /// Tab steps through the options of a split zone. The choice is kept while the cursor stays in the same zone
+    var optionsKey: DropOptions.Key? = nil
+    var optionIndex = 0
+}
+
+/// Split zones offer one option per group that the hovered tile is at the edge of: the tile, its row or column, the screen.
+/// Options that produce the same layout are merged
+private struct DropOptions {
+    struct Key: Equatable {
+        let targetWindowId: UInt32
+        let zone: DropZone
+        let snapsToScreen: Bool
+    }
+
+    var key: Key?
+    var options: [(drop: PendingDrop, group: DropPreview.Group?)]
+    var defaultIndex: Int
 }
 
 @MainActor private var dragSession: DragSession? = nil
 @MainActor private var pendingDrop: PendingDrop? = nil
+@MainActor private var nextOptionHotKey: HotKey? = nil
 
 func dropZone(for point: CGPoint, in rect: Rect) -> DropZone {
     guard rect.width > 0 && rect.height > 0 else { return .stack }
@@ -55,7 +79,7 @@ func updateDropPreview(_ window: Window) async throws {
         let isDialog = window.parent is FloatingWindowsContainer
             ? try await (window as? MacWindow)?.isDialogHeuristic(getWindowLevel(for: window.windowId), .cancellable) ?? false
             : false
-        dragSession = DragSession(windowId: window.windowId, initialSize: initialSize, isDialog: isDialog)
+        dragSession = DragSession(windowId: window.windowId, initialSize: initialSize, isDialog: isDialog, origin: dragOrigin(window))
     }
     currentlyManipulatedWithMouseWindowId = window.windowId
     window.lastAppliedLayoutPhysicalRect = nil
@@ -67,6 +91,14 @@ func updateDropPreview(_ window: Window) async throws {
     refreshDropPreview(window)
 }
 
+@MainActor
+private func dragOrigin(_ window: Window) -> (rect: Rect, workspace: Workspace)? {
+    guard let parent = window.parent as? TilingContainer, let workspace = window.nodeWorkspace,
+          let rect = window.lastAppliedLayoutPhysicalRect else { return nil }
+    if parent.layout == .accordion && parent.children.count > 1 { return nil } // The rest of the stack stays there
+    return (rect, workspace)
+}
+
 /// The Option key switches between stack and swap without moving the mouse
 @MainActor
 func dropModifierFlagsChanged() {
@@ -75,48 +107,134 @@ func dropModifierFlagsChanged() {
 }
 
 @MainActor
+private func selectNextDropOption() {
+    guard let session = dragSession, isLeftMouseButtonDown, let window = Window.get(byId: session.windowId) else { return }
+    dragSession?.optionIndex += 1
+    refreshDropPreview(window)
+}
+
+@MainActor
 private func refreshDropPreview(_ window: Window) {
-    guard let dragSession, !dragSession.isResize, !dragSession.isDialog,
-          let drop = findDrop(window, at: mouseLocation),
-          let preview = previewDrop(drop)
+    guard let session = dragSession, !session.isResize, !session.isDialog,
+          let found = findDropOptions(window, at: mouseLocation), !found.options.isEmpty
     else {
+        pendingDrop = nil
+        setNextOptionHotKeyEnabled(false)
+        DropZoneOverlay.shared.hide()
+        return
+    }
+    if session.optionsKey != found.key {
+        dragSession?.optionsKey = found.key
+        dragSession?.optionIndex = found.defaultIndex
+    }
+    let index = (dragSession?.optionIndex ?? 0) % found.options.count
+    let option = found.options[index]
+    guard let preview = previewDrop(option.drop, group: option.group, optionIndex: index, optionCount: found.options.count) else {
         pendingDrop = nil
         DropZoneOverlay.shared.hide()
         return
     }
-    pendingDrop = drop
+    pendingDrop = option.drop
+    setNextOptionHotKeyEnabled(found.options.count > 1)
     DropZoneOverlay.shared.show(preview)
 }
 
-/// Decides what the drop means, based on where the windows are now
+/// Tab is taken only while there is something to switch between, so it doesn't reach the dragged window's app
 @MainActor
-private func findDrop(_ window: Window, at point: CGPoint) -> PendingDrop? {
-    let workspace = point.monitorApproximation.activeWorkspace
+private func setNextOptionHotKeyEnabled(_ enabled: Bool) {
+    if enabled && nextOptionHotKey == nil {
+        nextOptionHotKey = HotKey(key: .tab, modifiers: [], keyDownHandler: {
+            Task.startUnstructured { @MainActor in selectNextDropOption() }
+        })
+    } else if !enabled, let hotKey = nextOptionHotKey {
+        hotKey.isEnabled = false
+        nextOptionHotKey = nil
+    }
+}
+
+/// Decides what the drop can mean, based on where the windows are now
+@MainActor
+private func findDropOptions(_ window: Window, at point: CGPoint) -> DropOptions? {
+    let monitor = point.monitorApproximation
+    let workspace = monitor.activeWorkspace
     let isFloating = window.parent is FloatingWindowsContainer
-    if let targetWindow = point.findWindowRecursively(in: workspace.rootTilingContainer, virtual: false, fullscreenCoversAll: false, excluding: window),
+    let snapEdge = screenEdge(near: point, monitor)
+    // Near the screen edge, the cursor might be outside of every tile (menu bar, Dock, outer gaps)
+    let probe = snapEdge == nil ? point : point.clamped(to: monitor.visibleRectPaddedByOuterGaps)
+    if let targetWindow = probe.findWindowRecursively(in: workspace.rootTilingContainer, virtual: false, fullscreenCoversAll: false, excluding: window),
        targetWindow != window,
        let rect = targetWindow.stackOrSelf.lastAppliedLayoutPhysicalRect
     {
-        var zone = dropZone(for: point, in: rect)
+        var zone = snapEdge.map { .split($0) } ?? dropZone(for: point, in: rect)
         // Floating windows are tiled only via the edge zones. The center keeps them floating
         if isFloating && zone == .stack { return nil }
         // Swapping with a window of another workspace would need to preview two workspaces at once
         if zone == .stack && NSEvent.modifierFlags.contains(.option) && window.nodeWorkspace == workspace { zone = .swap }
-        return PendingDrop(window: window, workspace: workspace, op: .tile(targetWindowId: targetWindow.windowId, zone))
+        let key = DropOptions.Key(targetWindowId: targetWindow.windowId, zone: zone, snapsToScreen: snapEdge != nil)
+        guard case .split(let direction) = zone else {
+            return DropOptions(key: key, options: [(PendingDrop(window: window, workspace: workspace, op: .tile(targetWindowId: targetWindow.windowId, zone)), nil)], defaultIndex: 0)
+        }
+        var options: [(drop: PendingDrop, group: DropPreview.Group?)] = []
+        var layouts: [String] = []
+        for (level, group) in splitGroups(targetWindow.stackOrSelf, direction).enumerated() {
+            let drop = PendingDrop(window: window, workspace: workspace, op: .tile(targetWindowId: targetWindow.windowId, zone, level: level))
+            guard let sim = simulate(drop) else { continue }
+            layout(sim, workspace)
+            let signature = sim.layoutSignature
+            if layouts.contains(signature) { continue }
+            layouts.append(signature)
+            options.append((drop, group))
+        }
+        return DropOptions(key: key, options: options, defaultIndex: snapEdge != nil ? options.count - 1 : 0)
     }
     // Floating windows moved to another monitor stay floating
     if !isFloating && workspace != window.nodeWorkspace && workspace.rootTilingContainer.allLeafWindowsRecursive.isEmpty {
-        return PendingDrop(window: window, workspace: workspace, op: .intoEmptyWorkspace)
+        return DropOptions(key: nil, options: [(PendingDrop(window: window, workspace: workspace, op: .intoEmptyWorkspace), nil)], defaultIndex: 0)
     }
     return nil
 }
 
+/// The tile (nil) and every group whose `direction` edge is the tile's edge, innermost first
+@MainActor
+private func splitGroups(_ tile: TreeNode, _ direction: CardinalDirection) -> [DropPreview.Group?] {
+    var result: [DropPreview.Group?] = [nil]
+    guard let tileRect = tile.lastAppliedLayoutPhysicalRect else { return result }
+    var node = tile
+    while let parent = node.parent as? TilingContainer, let parentRect = parent.lastAppliedLayoutPhysicalRect,
+          abs(parentRect.edge(direction) - tileRect.edge(direction)) < 2
+    {
+        result.append(parent.isRootContainer ? .screen : parent.orientation == .h ? .row : .column)
+        node = parent
+    }
+    return result
+}
+
+@MainActor
+private func screenEdge(near point: CGPoint, _ monitor: any MonitorInfo) -> CardinalDirection? {
+    let visible = monitor.visibleRect
+    let screen = monitor.rect
+    let edges: [(toVisible: CGFloat, toScreen: CGFloat, CardinalDirection)] = [
+        (point.x - visible.minX, point.x - screen.minX, .left),
+        (visible.maxX - point.x, screen.maxX - point.x, .right),
+        (point.y - visible.minY, point.y - screen.minY, .up),
+        (visible.maxY - point.y, screen.maxY - point.y, .down),
+    ]
+    guard let nearest = edges.min(by: { $0.toVisible < $1.toVisible }) else { return nil }
+    // Outside of the visible rect means the menu bar or the Dock
+    return nearest.toVisible < 0 || nearest.toScreen < screenEdgeSnapDistance ? nearest.2 : nil
+}
+
+@MainActor
+private func layout(_ sim: SimNode, _ workspace: Workspace) {
+    let monitor = workspace.workspaceMonitor
+    sim.layout(monitor.visibleRectPaddedByOuterGaps, innerGaps: ResolvedGaps(gaps: config.gaps, monitor: monitor).inner)
+}
+
 /// Lays out the simulated result. Draws where every window ends up, not where the cursor is
 @MainActor
-private func previewDrop(_ drop: PendingDrop) -> DropPreview? {
+private func previewDrop(_ drop: PendingDrop, group: DropPreview.Group?, optionIndex: Int, optionCount: Int) -> DropPreview? {
     guard let sim = simulate(drop) else { return nil }
-    let monitor = drop.workspace.workspaceMonitor
-    sim.layout(monitor.visibleRectPaddedByOuterGaps, innerGaps: ResolvedGaps(gaps: config.gaps, monitor: monitor).inner)
+    layout(sim, drop.workspace)
     guard let landingTile = sim.window(drop.window.windowId)?.stackOrSelf, let landingRect = landingTile.rect else { return nil }
 
     var ghosts: [DropPreview.Ghost] = []
@@ -141,21 +259,29 @@ private func previewDrop(_ drop: PendingDrop) -> DropPreview? {
     switch drop.op {
         case .intoEmptyWorkspace:
             action = .moveToWorkspace(drop.workspace.name)
-        case .tile(let targetWindowId, let zone):
+        case .tile(let targetWindowId, let zone, _):
             targetName = Window.get(byId: targetWindowId)?.app.name
             action = switch zone {
                 case .stack: .stack
                 case .swap: .swap
-                case .split(let direction): .split(direction)
+                case .split(let direction): .split(direction, group)
             }
+    }
+    let monitor = drop.workspace.workspaceMonitor
+    var originRect: Rect? = nil
+    if let origin = dragSession?.origin, origin.workspace == drop.workspace, !origin.rect.isClose(to: landingRect) {
+        originRect = origin.rect
     }
     return DropPreview(
         action: action,
         targetName: targetName,
         monitorRect: monitor.rect.cgRect,
+        originRect: originRect?.cgRect,
         landingRect: landingRect.cgRect,
         landingStackCount: landingTile.allWindows.count,
         ghosts: ghosts,
+        optionIndex: optionIndex,
+        optionCount: optionCount,
     )
 }
 
@@ -167,7 +293,7 @@ func simulate(_ drop: PendingDrop) -> SimNode? {
     switch drop.op {
         case .intoEmptyWorkspace:
             dragged.bind(to: sim.rootContainer, weight: WEIGHT_AUTO, index: 0)
-        case .tile(let targetWindowId, let zone):
+        case .tile(let targetWindowId, let zone, let level):
             guard let target = sim.window(targetWindowId), target !== dragged else { return nil }
             switch zone {
                 case .stack:
@@ -176,7 +302,12 @@ func simulate(_ drop: PendingDrop) -> SimNode? {
                     guard dragged.parent != nil else { return nil }
                     swapWindows(dragged, target)
                 case .split(let direction):
-                    splitTile(target.stackOrSelf, with: dragged, direction)
+                    var tile = target.stackOrSelf
+                    for _ in 0 ..< level {
+                        guard let parent = tile.parent, parent.isContainer else { return nil }
+                        tile = parent
+                    }
+                    splitTile(tile, with: dragged, direction)
             }
     }
     sim.normalizeContainers()
@@ -187,6 +318,7 @@ func simulate(_ drop: PendingDrop) -> SimNode? {
 @MainActor
 func takePendingDrop() -> PendingDrop? {
     DropZoneOverlay.shared.hide()
+    setNextOptionHotKeyEnabled(false)
     dragSession = nil
     defer { pendingDrop = nil }
     return pendingDrop
@@ -217,11 +349,37 @@ extension SimNode {
     fileprivate var mostRecentWindowRecursive: SimNode? {
         windowId != nil ? self : mostRecentChild?.mostRecentWindowRecursive
     }
+
+    /// Two drops with the same signature produce the same layout
+    fileprivate var layoutSignature: String {
+        allWindows
+            .map { window in
+                let rect = window.rect.orDie()
+                return "\(window.windowId.orDie()):\(Int(rect.minX)),\(Int(rect.minY)),\(Int(rect.width)),\(Int(rect.height))"
+            }
+            .sorted()
+            .joined(separator: ";")
+    }
 }
 
 extension Rect {
     fileprivate func isClose(to other: Rect) -> Bool {
         abs(minX - other.minX) < 2 && abs(minY - other.minY) < 2 && abs(width - other.width) < 2 && abs(height - other.height) < 2
+    }
+
+    fileprivate func edge(_ direction: CardinalDirection) -> CGFloat {
+        switch direction {
+            case .left: minX
+            case .right: maxX
+            case .up: minY
+            case .down: maxY
+        }
+    }
+}
+
+extension CGPoint {
+    fileprivate func clamped(to rect: Rect) -> CGPoint {
+        CGPoint(x: min(max(x, rect.minX + 1), rect.maxX - 1), y: min(max(y, rect.minY + 1), rect.maxY - 1))
     }
 }
 
@@ -240,12 +398,17 @@ private func stackWindow(_ window: SimNode, onto tile: SimNode) {
     }
 }
 
-/// Splits the space of `target` in half and puts `window` on the `direction` side. Other tiles keep their sizes
+/// Splits the space of `target` (a tile or a whole group) in half and puts `window` on the `direction` side.
+/// Other tiles keep their sizes
 @MainActor
 private func splitTile(_ target: SimNode, with window: SimNode, _ direction: CardinalDirection) {
     if window.parent != nil { window.unbind() }
-    guard let parent = target.parent, parent.isContainer else { return }
-    if parent.orientation == direction.orientation && parent.layout == .tiles {
+    guard let parent = target.parent else { return }
+    if target.orientation == direction.orientation && target.layout == .tiles {
+        // A group laid out along the split direction: the window joins it at the edge and takes half of it
+        let total = target.children.map(\.weight).reduce(0, +)
+        window.bind(to: target, weight: total, index: direction.isPositive ? INDEX_BIND_LAST : 0)
+    } else if parent.orientation == direction.orientation && parent.layout == .tiles {
         let half = target.weight / 2
         target.weight = half
         window.bind(to: parent, weight: half, index: target.ownIndex.orDie() + direction.insertionOffset)

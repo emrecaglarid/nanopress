@@ -42,4 +42,6 @@ final class TestWindow: Window, CustomStringConvertible {
     }
 
     override func isMacosFullscreen(_ cm: CancellationMode) async throws -> Bool { isMacosFullscreenForTest }
+
+    override func setAxFrame(_ topLeft: CGPoint?, _ size: CGSize?) {} // Layout tests read lastAppliedLayoutPhysicalRect
 }

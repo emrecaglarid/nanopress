@@ -29,10 +29,11 @@ private func moveWithMouse(_ window: Window) async throws { // todo cover with t
     switch window.windowParentCases {
         case .floatingWindowsContainer:
             try await moveFloatingWindow(window)
+            try await updateDropPreview(window)
         case .macosFullscreenWindowsContainer, .macosMinimizedWindowsContainer, .macosPopupWindowsContainer, .macosHiddenAppsWindowsContainer:
             return // Unconventional windows can't be moved with mouse
         case .tilingContainer:
-            moveTilingWindow(window)
+            try await updateDropPreview(window)
         case .unbound: return
     }
 }
@@ -43,33 +44,6 @@ private func moveFloatingWindow(_ window: Window) async throws {
     guard let parent = window.parent else { return }
     if targetWorkspace != parent {
         window.bindAsFloatingWindow(to: targetWorkspace)
-    }
-}
-
-@MainActor
-private func moveTilingWindow(_ window: Window) {
-    currentlyManipulatedWithMouseWindowId = window.windowId
-    window.lastAppliedLayoutPhysicalRect = nil
-    let mouseLocation = mouseLocation
-    let targetWorkspace = mouseLocation.monitorApproximation.activeWorkspace
-    let swapTarget = mouseLocation
-        .findWindowRecursively(in: targetWorkspace.rootTilingContainer, virtual: false, fullscreenCoversAll: false)?
-        .takeIf { $0 != window }
-    if targetWorkspace != window.nodeWorkspace { // Move window to a different monitor
-        let index: Int = if let swapTarget, let parent = swapTarget.parent as? TilingContainer, let targetRect = swapTarget.lastAppliedLayoutPhysicalRect {
-            mouseLocation.getProjection(parent.orientation) >= targetRect.center.getProjection(parent.orientation)
-                ? swapTarget.ownIndex.orDie() + 1
-                : swapTarget.ownIndex.orDie()
-        } else {
-            0
-        }
-        window.bind(
-            to: swapTarget?.parent ?? targetWorkspace.rootTilingContainer,
-            adaptiveWeight: WEIGHT_AUTO,
-            index: index,
-        )
-    } else if let swapTarget {
-        swapWindows(mruDominant: window, swapTarget)
     }
 }
 
@@ -90,17 +64,18 @@ extension CGPoint {
         in tree: TilingContainer,
         virtual: Bool,
         fullscreenCoversAll: Bool,
+        excluding excluded: Window? = nil,
     ) -> Window? {
         if fullscreenCoversAll {
             if let window = tree.mostRecentWindowRecursive, window.isFullscreen {
                 return window
             }
         }
-        return _findWindowRecursively(in: tree, virtual: virtual)
+        return _findWindowRecursively(in: tree, virtual: virtual, excluding: excluded)
     }
 
     @MainActor
-    private func _findWindowRecursively(in tree: TilingContainer, virtual: Bool) -> Window? {
+    private func _findWindowRecursively(in tree: TilingContainer, virtual: Bool, excluding excluded: Window?) -> Window? {
         let point = self
         let target: TreeNode? = switch tree.layout {
             case .tiles:
@@ -108,12 +83,13 @@ extension CGPoint {
                     (virtual ? $0.lastAppliedLayoutVirtualRect : $0.lastAppliedLayoutPhysicalRect)?.contains(point) == true
                 })
             case .accordion:
-                tree.mostRecentChild
+                // The window that is being dragged is on top of the accordion, but it can't be a drop target for itself
+                tree.mruChildren.first { $0 !== excluded } ?? tree.mostRecentChild
         }
         guard let target else { return nil }
         return switch target.tilingTreeNodeCasesOrDie() {
             case .window(let window): window
-            case .tilingContainer(let container): _findWindowRecursively(in: container, virtual: virtual)
+            case .tilingContainer(let container): _findWindowRecursively(in: container, virtual: virtual, excluding: excluded)
         }
     }
 }

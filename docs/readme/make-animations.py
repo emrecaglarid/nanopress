@@ -352,7 +352,205 @@ def tabs_frames():
         frames.append(img)
     return frames
 
+# MARK: Menu bar panel
+
+def panel_frames():
+    MB = 26                         # menu bar
+    M, G = 12, 10
+    top = MB + M
+    area_h = H - top - M
+    rw = W - 2 * M
+    left_w = (rw - G) * 0.5
+    # Before: Dia left, Slack over Ghostty on the right
+    before = {
+        'Dia': (M, top, left_w, area_h),
+        'Slack': (M + left_w + G, top, rw - left_w - G, (area_h - G) / 2),
+        'Ghostty': (M + left_w + G, top + (area_h - G) / 2 + G, rw - left_w - G, (area_h - G) / 2),
+    }
+    # After dropping Ghostty left of Dia
+    q = (left_w - G) / 2
+    middle = {
+        'Ghostty': (M, top, q, area_h),
+        'Dia': (M + q + G, top, q, area_h),
+        'Slack': (M + left_w + G, top, rw - left_w - G, area_h),
+    }
+    # After moving Slack to workspace 2
+    end = {
+        'Ghostty': (M, top, (rw - G) / 2, area_h),
+        'Dia': (M + (rw - G) / 2 + G, top, (rw - G) / 2, area_h),
+    }
+
+    # The panel, under its menu bar icon
+    PW = 330
+    PX, PY = W - M - PW, MB + 6
+    icon_x = W - 128
+    map_x, map_y = PX + 14, PY + 52
+    map_w = PW - 28
+    scale = map_w / W
+    map_h = (H - MB) * scale
+
+    def to_map(rect):
+        x, y, w, h = rect
+        return (map_x + x * scale, map_y + (y - MB) * scale, w * scale, h * scale)
+
+    def from_map(point):
+        return ((point[0] - map_x) / scale, (point[1] - map_y) / scale + MB)
+
+    chips = [(PX + 120 + i * 40, PY + 14, 34, 22) for i in range(3)]
+
+    def menubar(img):
+        layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer)
+        d.rectangle([0, 0, W * S, MB * S], fill=(245, 245, 247, 200))
+        d.text((18 * S, MB / 2 * S), '', font=font(14, 500), fill=(30, 30, 34, 255), anchor='lm')
+        d.text((44 * S, MB / 2 * S), 'Finder', font=font(13, 700), fill=(30, 30, 34, 255), anchor='lm')
+        # nanopress's icon: the tiled screen, with the landing tile filled
+        x, y = icon_x * S, (MB / 2 - 7) * S
+        d.rounded_rectangle([x, y, x + 9 * S, y + 14 * S], 2.5 * S, outline=(30, 30, 34, 255), width=int(1.5 * S))
+        d.rounded_rectangle([x + 9 * S, y, x + 18 * S, y + 7 * S], 2.5 * S, outline=(30, 30, 34, 255), width=int(1.5 * S))
+        d.rounded_rectangle([x + 9 * S, y + 7.5 * S, x + 18 * S, y + 14 * S], 2.5 * S, fill=(30, 30, 34, 255))
+        d.text(((W - 70) * S, MB / 2 * S), '9:41', font=font(13, 500), fill=(30, 30, 34, 255), anchor='lm')
+        img.paste(layer, (0, 0), layer)
+
+    class Blend:
+        """Draws each shape on its own layer and blends it in, so that see-through fills tint what's under them"""
+        def __init__(self, size): self.image = Image.new('RGBA', size, (0, 0, 0, 0))
+        def __getattr__(self, name):
+            def draw(*args, **kwargs):
+                top = Image.new('RGBA', self.image.size, (0, 0, 0, 0))
+                getattr(ImageDraw.Draw(top), name)(*args, **kwargs)
+                self.image = Image.alpha_composite(self.image, top)
+            return draw
+        def textlength(self, *args, **kwargs): return ImageDraw.Draw(self.image).textlength(*args, **kwargs)
+
+    def panel(img, layout, alpha, drag=None, target_chip=None, chip_filled=False, landing=None):
+        shadow(img, (PX, PY, PW, map_h + 66), radius=12, blur=20, alpha=int(120 * alpha / 255), offset=8)
+        d = Blend(img.size)
+        X, Y = PX * S, PY * S
+        d.rounded_rectangle([X, Y, X + PW * S, Y + (map_h + 66) * S], 12 * S, fill=(242, 242, 245, 248), outline=(205, 205, 210, 255), width=S)
+        d.text((X + 14 * S, Y + 25 * S), 'nanopress', font=font(13, 600), fill=(30, 30, 34, 255), anchor='lm')
+        for i, chip in enumerate(chips):
+            cx, cy, cw, ch = sc(chip)
+            current = i == 0
+            targeted = target_chip == i
+            filled = i == 1 and chip_filled
+            fill = ACCENT + (60,) if targeted else (0, 0, 0, 14) if (current or filled) else (0, 0, 0, 0)
+            outline = ACCENT + (255,) if (current or targeted) else (0, 0, 0, 40 if filled else 70)
+            d.rounded_rectangle([cx, cy, cx + cw, cy + ch], 5 * S, fill=fill, outline=outline, width=int((1.5 if current or targeted else 1) * S))
+            color = ACCENT if (current or targeted) else (110, 110, 118) if filled else (160, 160, 168)
+            d.text((cx + cw / 2, cy + ch / 2), str(i + 1), font=font(11, 600 if current else 500), fill=color + (255,), anchor='mm')
+        # Toggle
+        tx, ty = (PX + PW - 48) * S, (PY + 16) * S
+        d.rounded_rectangle([tx, ty, tx + 32 * S, ty + 18 * S], 9 * S, fill=ACCENT + (255,))
+        d.ellipse([tx + 15 * S, ty + 2 * S, tx + 29 * S, ty + 16 * S], fill=(255, 255, 255, 255))
+        d.line([X, Y + 44 * S, X + PW * S, Y + 44 * S], fill=(215, 215, 220, 255), width=S)
+        # The minimap
+        mx, my = map_x * S, map_y * S
+        d.rounded_rectangle([mx - 3 * S, my - 3 * S, mx + (map_w + 3) * S, my + (map_h + 3) * S], 8 * S, fill=(0, 0, 0, 12))
+        for app, rect in layout.items():
+            if drag and app == drag[0]:
+                tile = to_map(rect)
+                tx2, ty2, tw, th = sc(tile)
+                d.rounded_rectangle([tx2 + S, ty2 + S, tx2 + tw - S, ty2 + th - S], 4 * S, outline=ACCENT + (120,), width=S)
+                continue
+            draw_tile(d, to_map(rect), app)
+        if landing:
+            lx, ly, lw, lh = sc(to_map(landing))
+            d.rounded_rectangle([lx + S, ly + S, lx + lw - S, ly + lh - S], 4 * S, fill=ACCENT + (70,), outline=ACCENT + (255,), width=int(1.5 * S))
+        layer = d.image
+        if alpha < 255:
+            layer.putalpha(layer.getchannel('A').point(lambda v: v * alpha // 255))
+        img.paste(layer, (0, 0), layer)
+
+    def draw_tile(d, tile, app, lifted=False):
+        x, y, w, h = sc(tile)
+        d.rounded_rectangle([x + S, y + S, x + w - S, y + h - S], 4 * S, fill=(220, 220, 226, 255) if not lifted else ACCENT + (60,),
+                            outline=ACCENT + (255,) if lifted else None, width=int(1.5 * S))
+        size = min(26 * S, w * 0.4, h * 0.4)
+        color = APPS[app][0]
+        d.rounded_rectangle([x + w / 2 - size / 2, y + h / 2 - size / 2, x + w / 2 + size / 2, y + h / 2 + size / 2], size * 0.25, fill=color + (255,))
+
+    def lifted_tile(img, app, rect, center):
+        d = Blend(img.size)
+        # Small while dragged, so that it doesn't cover what it's dropped on
+        w, h = min(to_map(rect)[2] * 0.8, 64), min(to_map(rect)[3] * 0.8, 44)
+        draw_tile(d, (center[0] - w / 2, center[1] - h / 2, w, h), app, lifted=True)
+        layer = d.image
+        img.paste(layer, (0, 0), layer)
+
+    def desktop(layout, preview=None):
+        img = BG.copy()
+        for app, rect in layout.items():
+            window(img, rect, app)
+        if preview:
+            region(img, preview, fill_alpha=70)
+        menubar(img)
+        return img
+
+    icon = (icon_x + 9, MB / 2)
+    ghostty_map = to_map(before['Ghostty'])
+    ghostty_grab = (ghostty_map[0] + ghostty_map[2] / 2, ghostty_map[1] + ghostty_map[3] / 2)
+    dia_map = to_map(before['Dia'])
+    drop_at = (dia_map[0] + 10, dia_map[1] + dia_map[3] / 2)
+    slack_map = to_map(middle['Slack'])
+    slack_grab = (slack_map[0] + slack_map[2] / 2, slack_map[1] + slack_map[3] / 2)
+    chip2 = (chips[1][0] + chips[1][2] / 2, chips[1][1] + chips[1][3] / 2)
+    keys = [
+        (0, (520, 300)), (16, icon), (22, icon), (40, ghostty_grab), (46, ghostty_grab), (76, drop_at), (84, drop_at),
+        (104, slack_grab), (110, slack_grab), (134, chip2), (142, chip2), (176, (520, 300)), (200, (520, 300)),
+    ]
+    def cursor_at(i):
+        for (f1, p1), (f2, p2) in zip(keys, keys[1:]):
+            if f1 <= i <= f2:
+                t = ease_io((i - f1) / max(f2 - f1, 1))
+                return (lerp(p1[0], p2[0], t), lerp(p1[1], p2[1], t))
+        return keys[-1][1]
+
+    def blend_layouts(a, b, t):
+        out = {}
+        for app in set(a) | set(b):
+            if app in a and app in b: out[app] = lerp_rect(a[app], b[app], t)
+            elif app in a: out[app] = a[app]
+        return out
+
+    frames = []
+    for i in range(200):
+        cur = cursor_at(i)
+        panel_alpha = 0 if i < 22 else min(255, (i - 22 + 1) * 50) if i < 170 else max(0, 255 - (i - 170) * 50)
+        drag = None
+        landing = None
+        target_chip = None
+        preview = None
+        if i < 84:
+            layout = before
+        elif i < 98:
+            layout = blend_layouts(before, middle, ease((i - 84) / 14))
+        elif i < 142:
+            layout = middle
+        elif i < 156:
+            t = ease((i - 142) / 14)
+            layout = blend_layouts({k: v for k, v in middle.items() if k != 'Slack'}, end, t)
+        else:
+            layout = end
+        if 46 <= i < 84:
+            drag = ('Ghostty', before['Ghostty'])
+            if i >= 62:
+                landing = middle['Ghostty']
+                preview = middle['Ghostty']
+        if 110 <= i < 142:
+            drag = ('Slack', middle['Slack'])
+            if i >= 128: target_chip = 1
+        img = desktop(layout, preview)
+        if panel_alpha > 0:
+            panel(img, layout, panel_alpha, drag=drag, target_chip=target_chip, chip_filled=i >= 142, landing=landing)
+            if drag:
+                lifted_tile(img, drag[0], drag[1], cur)
+        cursor(img, cur, pressed=i in (20, 21) or (46 <= i < 84) or (110 <= i < 142))
+        frames.append(img)
+    return frames
+
 if __name__ == '__main__':
-    which = sys.argv[2:] or ['drag', 'tabs']
+    which = sys.argv[2:] or ['drag', 'tabs', 'panel']
     if 'drag' in which: save(drag_frames(), 'drag-and-drop.gif')
     if 'tabs' in which: save(tabs_frames(), 'stack-tabs.gif')
+    if 'panel' in which: save(panel_frames(), 'menu-bar-panel.gif')

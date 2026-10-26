@@ -14,6 +14,14 @@ nanopress keeps your windows side by side, so none of them hides another. To mov
 
 It's a fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace). AeroSpace's keyboard shortcuts, commands and config file all still work.
 
+## Arrange from the menu bar
+
+<p align="center">
+  <img src="./docs/readme/menu-bar-panel.gif" width="720" alt="The nanopress panel opens from the menu bar. Ghostty's tile is dragged next to Dia in the minimap and the real windows follow, then Slack's tile is dropped on workspace 2">
+</p>
+
+You don't have to push big windows around to arrange a workspace. Click the nanopress icon in the menu bar for a minimap of your screen and arrange it there: drag tiles to move windows, drag the gaps to resize, drop a tile on a workspace number to send the window there. The screen shows each change at full size before you let go. Below the minimap, Auto-arrange suggests layouts for the number of windows you want to see.
+
 ## Install
 
 ```sh
@@ -45,23 +53,15 @@ When there's more than one way to split, press Tab while still holding the mouse
 
 Windows that share a spot get a row of tabs. Click a tab to bring its window forward, scroll over the tabs to flip through them, or drag a tab away to give that window its own spot. "+" lists your other windows, minimized ones too, to bring one into the stack. A dot on a tab means the app has unread items.
 
-## The menu bar panel
+## Also
 
-<p align="center">
-  <img src="./docs/readme/menu-bar-panel.png" width="420" alt="The nanopress panel: workspace chips at the top, a map of the screen's windows, and Auto-arrange options">
-</p>
-
-Click the nanopress icon in the menu bar for a map of your screen. Drag the tiles to rearrange windows, drag the gaps between them to resize, and drop a window on a workspace number to move it there. Auto-arrange suggests layouts for the number of windows you want to see.
-
-## Other things nanopress does
-
-- Resizing a window over its neighbour stacks the two. Shrinking a stacked window from a free edge takes it out of the stack.
-- Double-clicking a title bar gives that window the whole screen. Double-clicking again brings your layout back.
-- A new window opens where you last put a window of that app. Once the screen is full, new windows are stacked instead of making everything smaller.
-- When nanopress changes your layout on its own, a note with Undo appears. The menu bar panel keeps the last one too.
-- Each display setup, like the laptop alone or the laptop with a monitor, has its own layout.
-- Apps you don't want tiled stay floating. Finder floats by default. Set this and the background in Settings.
-- With Agents turned on in Settings, an AI agent that supports MCP, like Claude, can arrange your windows when you ask. Window titles are only shared if you allow it.
+- Resize a window over its neighbour to stack them; shrink a stacked window from a free edge to take it out.
+- Double-click a title bar to give a window the whole screen, and again to bring your layout back.
+- New windows open where you last put that app, and stack once the screen is full.
+- Changes nanopress makes on its own come with Undo.
+- Each display setup keeps its own layout.
+- Apps you don't want tiled, like Finder, can float. See Settings.
+- AI agents that speak MCP can arrange your windows too, if you turn it on in Settings. I'm still working out what for.
 
 ## Keyboard and config
 

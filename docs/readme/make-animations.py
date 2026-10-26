@@ -1,12 +1,12 @@
 # Draws the README animations of a mock desktop, frame by frame. Run: python3 docs/readme/make-animations.py docs/readme (needs Pillow and ffmpeg)
-import os, sys, subprocess, shutil
+import os, sys, subprocess, shutil, tempfile
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 S = 2                      # drawn at 2x, scaled down for smooth edges
 W, H = 960, 540
 FPS = 30
 OUT = sys.argv[1]
-TMP = os.path.join(os.path.dirname(__file__), 'frames')
+TMP = os.path.join(tempfile.gettempdir(), 'nanopress-readme-frames')  # Frames before they become a GIF
 ACCENT = (10, 132, 255)
 FONT = '/System/Library/Fonts/SFNS.ttf'
 

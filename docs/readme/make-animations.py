@@ -35,9 +35,9 @@ BG = background()
 APPS = {
     'Dia': ((255, 196, 61), 'Kytöniitty listing'),
     'Slack': ((97, 31, 105), '#design'),
-    'Ghostty': ((40, 42, 48), '~/nanopress'),
+    'Ghostty': ((40, 42, 48), 'zsh'),
     'Mail': ((30, 120, 245), 'Inbox'),
-    'Notes': ((242, 190, 40), 'Groceries'),
+    'Notes': ((242, 190, 40), 'Ideas'),
 }
 
 def shadow(img, rect, radius=14, blur=18, alpha=90, offset=8):
@@ -208,14 +208,13 @@ def tabs_frames():
     left = (M, M, 464, H - 2 * M)
     rx = M + 464 + G
     rw = W - M - rx
-    tab_h, tab_gap = 26, 4
-    stack = (rx, M, rw, H - 2 * M - tab_h - tab_gap)
-    order = ['Slack', 'Mail', 'Notes']
+    tab_h = 26
+    stack = (rx, M, rw, H - 2 * M - tab_h - 4)
     f = font(11, 600)
     f2 = font(11, 400)
     probe = ImageDraw.Draw(Image.new('RGB', (10, 10)))
 
-    def tab_rects():
+    def tab_rects(order):
         x = rx
         rects = []
         for app in order:
@@ -223,26 +222,30 @@ def tabs_frames():
             w = 10 + 16 + 6 + text_w + 10
             rects.append((x, H - M - tab_h, w, tab_h))
             x += w + 3
-        rects.append((x, H - M - tab_h, 30, tab_h))
+        rects.append((x, H - M - tab_h, 30, tab_h))  # "+"
         return rects
 
-    def draw_tabs(img, front, hovered, show_plus, badge):
+    def fill_for(is_front, is_hovered):
+        base = (236, 236, 239)
+        if is_front: return tuple(int(lerp(c, a, 0.16)) for c, a in zip(base, ACCENT))
+        return tuple(c - 14 for c in base) if is_hovered else base
+
+    def block(d, rect, fill, leading, trailing):
+        # Round at the ends of the block of tabs, nearly square where tabs meet
+        X, Y, Wd, Hd = sc(rect)
+        d.rounded_rectangle([X, Y, X + Wd / 2 + leading, Y + Hd], leading, fill=fill + (255,))
+        d.rounded_rectangle([X + Wd / 2 - trailing, Y, X + Wd, Y + Hd], trailing, fill=fill + (255,))
+
+    def draw_tabs(img, order, front, hovered, show_plus, plus_hovered, badge):
         layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
         d = ImageDraw.Draw(layer)
-        rects = tab_rects()
-        n = len(order)
+        rects = tab_rects(order)
+        outer, inner = 8 * S, 3 * S
         for idx, (app, rect) in enumerate(zip(order, rects)):
-            X, Y, Wd, Hd = sc(rect)
             is_front = app == front
-            base = (236, 236, 239)
-            fill = tuple(int(lerp(c, a, 0.16)) for c, a in zip(base, ACCENT)) if is_front else (tuple(c - 14 for c in base) if hovered == app else base)
-            outer, inner = 8 * S, 3 * S
-            last = idx == n - 1 and not show_plus
-            radii = (outer if idx == 0 else inner, outer if last else inner)
-            # Leading and trailing corners differ: draw as two rounded rects joined
-            d.rounded_rectangle([X, Y, X + Wd, Y + Hd], radii[0], fill=fill + (255,))
-            d.rounded_rectangle([X + Wd / 2, Y, X + Wd, Y + Hd], radii[1], fill=fill + (255,))
-            d.rectangle([X + radii[0], Y, X + Wd - radii[1], Y + Hd], fill=fill + (255,))
+            last = idx == len(order) - 1 and not show_plus
+            block(d, rect, fill_for(is_front, hovered == app), outer if idx == 0 else inner, outer if last else inner)
+            X, Y, Wd, Hd = sc(rect)
             color, title = APPS[app]
             ix = X + 10 * S
             d.rounded_rectangle([ix, Y + Hd / 2 - 8 * S, ix + 16 * S, Y + Hd / 2 + 8 * S], 4 * S, fill=color + (255,))
@@ -254,19 +257,59 @@ def tabs_frames():
             tx += d.textlength(app, font=f)
             d.text((tx, Y + Hd / 2), '  ' + title, font=f2, fill=(text_color if is_front else (120, 120, 128)) + (255,), anchor='lm')
         if show_plus:
-            X, Y, Wd, Hd = sc(rects[-1])
-            d.rounded_rectangle([X, Y, X + Wd, Y + Hd], 8 * S, fill=(236, 236, 239, 255))
-            d.rounded_rectangle([X, Y, X + Wd / 2, Y + Hd], 3 * S, fill=(236, 236, 239, 255))
+            rect = rects[-1]
+            block(d, rect, fill_for(False, plus_hovered), inner, outer)
+            X, Y, Wd, Hd = sc(rect)
             cx, cy = X + Wd / 2, Y + Hd / 2
             d.line([cx - 6 * S, cy, cx + 6 * S, cy], fill=(90, 90, 98, 255), width=2 * S)
             d.line([cx, cy - 6 * S, cx, cy + 6 * S], fill=(90, 90, 98, 255), width=2 * S)
         img.paste(layer, (0, 0), layer)
 
-    rects = tab_rects()
-    def center(i): r = rects[i]; return (r[0] + r[2] / 2, r[1] + r[3] / 2)
+    # The "Bring here" menu: every window outside the stack, where it is in quieter text
+    MENU_ITEMS = [('Dia', None), ('Ghostty', 'Workspace 2'), ('Calendar', 'Minimized')]
+    APPS.setdefault('Calendar', ((255, 69, 58), 'October'))
+    item_h, menu_w = 26, 270
+
+    def menu_rect(plus):
+        # Opens above "+", shifted left where it would run off the screen, like a real menu
+        h = 8 + 22 + item_h * len(MENU_ITEMS) + 6
+        return (min(plus[0] - 10, W - M - menu_w), plus[1] - h - 6, menu_w, h)
+
+    def item_rect(menu, i):
+        return (menu[0] + 5, menu[1] + 8 + 22 + item_h * i, menu[2] - 10, item_h)
+
+    def draw_menu(img, menu, highlighted, alpha):
+        shadow(img, menu, radius=10, blur=16, alpha=int(110 * alpha / 255), offset=6)
+        layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer)
+        X, Y, Wd, Hd = sc(menu)
+        d.rounded_rectangle([X, Y, X + Wd, Y + Hd], 10 * S, fill=(246, 246, 248, 250), outline=(205, 205, 210, 255), width=S)
+        d.text((X + 14 * S, Y + 19 * S), 'Bring here', font=font(11, 600), fill=(128, 128, 136, 255), anchor='lm')
+        for i, (app, place) in enumerate(MENU_ITEMS):
+            IX, IY, IW, IH = sc(item_rect(menu, i))
+            on = i == highlighted
+            if on: d.rounded_rectangle([IX, IY, IX + IW, IY + IH], 5 * S, fill=ACCENT + (255,))
+            color, title = APPS[app]
+            d.rounded_rectangle([IX + 9 * S, IY + IH / 2 - 8 * S, IX + 25 * S, IY + IH / 2 + 8 * S], 4 * S, fill=color + (255,))
+            text = f'{app}: {title}'
+            d.text((IX + 33 * S, IY + IH / 2), text, font=font(13, 400), fill=((255, 255, 255) if on else (30, 30, 34)) + (255,), anchor='lm')
+            if place:
+                tx = IX + 33 * S + d.textlength(text, font=font(13, 400)) + 8 * S
+                d.text((tx, IY + IH / 2), place, font=font(13, 400), fill=((225, 235, 255) if on else (130, 130, 138)) + (255,), anchor='lm')
+        if alpha < 255:
+            layer.putalpha(layer.getchannel('A').point(lambda v: v * alpha // 255))
+        img.paste(layer, (0, 0), layer)
+
+    start = ['Slack', 'Mail', 'Notes']
+    after = start + ['Ghostty']
+    rects = tab_rects(start)
+    def center(r): return (r[0] + r[2] / 2, r[1] + r[3] / 2)
+    plus = center(rects[3])
+    menu = menu_rect(rects[3])
+    ghostty_item = center(item_rect(menu, 1))
     keys = [  # (frame, cursor position)
-        (0, (700, 300)), (16, center(1)), (40, center(1)), (58, center(2)), (82, center(2)),
-        (100, (rects[3][0] + 15, rects[3][1] + 13)), (124, (rects[3][0] + 15, rects[3][1] + 13)), (146, (700, 300)), (160, (700, 300)),
+        (0, (700, 300)), (16, center(rects[1])), (40, center(rects[1])), (58, center(rects[2])), (80, center(rects[2])),
+        (98, plus), (110, plus), (128, ghostty_item), (142, ghostty_item), (176, (700, 300)), (200, (700, 300)),
     ]
     def cursor_at(i):
         for (f1, p1), (f2, p2) in zip(keys, keys[1:]):
@@ -275,25 +318,37 @@ def tabs_frames():
                 return (lerp(p1[0], p2[0], t), lerp(p1[1], p2[1], t))
         return keys[-1][1]
 
-    frames = []
-    for i in range(160):
+    def scene(front, order):
         img = BG.copy()
-        front = 'Slack' if i < 22 else 'Mail' if i < 64 else 'Notes'
-        previous = {'Mail': 'Slack', 'Notes': 'Mail'}.get(front)
-        switched_at = 22 if front == 'Mail' else 64
-        cur = cursor_at(i)
-        hovered = None
-        for app, r in zip(order, rects):
-            if r[0] <= cur[0] <= r[0] + r[2] and r[1] <= cur[1] <= r[1] + r[3]: hovered = app
-        on_bar = rects[0][0] <= cur[0] <= rects[3][0] + rects[3][2] and rects[0][1] - 4 <= cur[1] <= rects[0][1] + rects[0][3] + 4
         window(img, left, 'Dia')
         window(img, stack, front)
+        return img
+
+    frames = []
+    for i in range(200):
+        order = start if i < 142 else after
+        front = 'Slack' if i < 22 else 'Mail' if i < 64 else 'Notes' if i < 142 else 'Ghostty'
+        previous = {'Mail': 'Slack', 'Notes': 'Mail', 'Ghostty': 'Notes'}.get(front)
+        switched_at = {'Mail': 22, 'Notes': 64, 'Ghostty': 142}.get(front, 0)
+        cur = cursor_at(i)
+        rects_now = tab_rects(order)
+        hovered = None
+        for app, r in zip(order, rects_now):
+            if r[0] <= cur[0] <= r[0] + r[2] and r[1] <= cur[1] <= r[1] + r[3]: hovered = app
+        bar = (rects_now[0][0], rects_now[0][1] - 4, rects_now[-1][0] + rects_now[-1][2] - rects_now[0][0], tab_h + 8)
+        menu_open = 110 <= i < 142
+        on_bar = menu_open or (bar[0] <= cur[0] <= bar[0] + bar[2] and bar[1] <= cur[1] <= bar[1] + bar[3])
+        plus_rect = rects_now[-1]
+        plus_hovered = menu_open or (plus_rect[0] <= cur[0] <= plus_rect[0] + plus_rect[2] and plus_rect[1] <= cur[1] <= plus_rect[1] + plus_rect[3])
+        img = scene(front, order)
         if previous and i - switched_at < 6:
-            # Brief crossfade from the window that was in front
-            old = BG.copy(); window(old, left, 'Dia'); window(old, stack, previous)
-            img = Image.blend(old, img, (i - switched_at + 1) / 6)
-        draw_tabs(img, front, hovered, on_bar, badge='Mail')
-        cursor(img, cur, pressed=i in (20, 21, 62, 63))
+            # A short crossfade from the window that was in front
+            img = Image.blend(scene(previous, order), img, (i - switched_at + 1) / 6)
+        draw_tabs(img, order, front, hovered, on_bar, plus_hovered, badge='Mail')
+        if menu_open:
+            highlighted = 1 if i >= 124 else None
+            draw_menu(img, menu, highlighted, alpha=min(255, (i - 110 + 1) * 64))
+        cursor(img, cur, pressed=i in (20, 21, 62, 63, 108, 109, 140, 141))
         frames.append(img)
     return frames
 

@@ -40,7 +40,7 @@ When there's more than one way to split, press Tab while still holding the mouse
 ## Stacks
 
 <p align="center">
-  <img src="./docs/readme/stack-tabs.gif" width="720" alt="A stack of Slack, Mail and Notes with tabs under it: clicking a tab brings that window forward">
+  <img src="./docs/readme/stack-tabs.gif" width="720" alt="A stack of Slack, Mail and Notes with tabs under it: clicking a tab brings that window forward, and + brings Ghostty in from another workspace">
 </p>
 
 Windows that share a spot get a row of tabs. Click a tab to bring its window forward, scroll over the tabs to flip through them, or drag a tab away to give that window its own spot. "+" lists your other windows, minimized ones too, to bring one into the stack. A dot on a tab means the app has unread items.

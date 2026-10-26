@@ -35,7 +35,15 @@ It's a fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace), so the til
 
 ## Install
 
-Download the latest version from [Releases](https://github.com/emrecaglarid/nanopress/releases), move nanopress to Applications and open it. macOS asks for Accessibility access, which nanopress needs to move windows.
+With [Homebrew](https://brew.sh):
+
+```sh
+brew install --cask emrecaglarid/tap/nanopress
+```
+
+Then open nanopress from Applications. macOS asks for Accessibility access, which nanopress needs to move windows.
+
+You can also download it from [Releases](https://github.com/emrecaglarid/nanopress/releases). nanopress isn't notarized by Apple yet, so a downloaded copy needs one extra step: open it once, then go to System Settings ▸ Privacy & Security and click Open Anyway. Homebrew takes care of that for you.
 
 To build it yourself, you need macOS and Swift 6:
 

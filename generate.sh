@@ -63,7 +63,11 @@ if test $generate_xcodeproj = 1; then
     cd xcode
 
     # Use the same Swift toolchain in xcodebuild
-    XCODEGEN_TOOLCHAINS="$(plutil -extract CFBundleIdentifier raw "$(swiftly use --print-location)/Info.plist")"
+    if /usr/bin/which swiftly &> /dev/null; then
+        XCODEGEN_TOOLCHAINS="$(plutil -extract CFBundleIdentifier raw "$(swiftly use --print-location)/Info.plist")"
+    else
+        XCODEGEN_TOOLCHAINS="" # The default toolchain, Xcode's
+    fi
     export XCODEGEN_TOOLCHAINS
     ../.deps/xcodegen/xcodegen # https://github.com/yonaskolb/XcodeGen
 fi

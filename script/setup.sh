@@ -30,8 +30,11 @@ add-swift-to-bin() {
         # I expect that this bug will be fixed in some time without my report anyway
         >> "$file" /bin/echo "if ! /bin/test -t 1; then export NO_COLOR=1; fi"
         >> "$file" /bin/echo "exec '$(/usr/bin/which swiftly)' run swift \"\$@\""
+    elif /usr/bin/which swift &> /dev/null; then
+        # Without swiftly, the toolchain on PATH (Xcode's, usually)
+        add-optional-dep-to-bin swift
     else
-        echo "ERROR: swiftly is not installed." > /dev/stderr
+        echo "ERROR: neither swiftly nor swift is installed." > /dev/stderr
         exit 1
     fi
 }

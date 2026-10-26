@@ -172,7 +172,7 @@ panelMapFirst = frame {
 
       buttonLabel {
         fill[0].color: colorTokens.colors.secondary,
-        contents: "Preferences"
+        contents: "Settings…"
       }
     }
 

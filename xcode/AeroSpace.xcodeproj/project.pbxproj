@@ -10,15 +10,15 @@
 		238EF26CAAADD1FE11312D7C /* default-config.toml in Resources */ = {isa = PBXBuildFile; fileRef = 8FE45A887100EB70912B07F0 /* default-config.toml */; };
 		852F88894A3B9FC385563665 /* AppBundle in Frameworks */ = {isa = PBXBuildFile; productRef = 018E55979F61DA6DA6DCB442 /* AppBundle */; };
 		883A44C8295FECF49F94269D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84C35D8E25B61D4D1ADB1851 /* Assets.xcassets */; };
-		C40E0D9C06086C58955237D9 /* NanopressApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C104E927E079E60C91AE3E /* NanopressApp.swift */; };
+		E5F81F6BB2A698C1F6796746 /* NanopressApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0478B9656DB6C4D3F0BF374 /* NanopressApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		09685297933511208058F7CF /* nanopress.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = nanopress.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		18C104E927E079E60C91AE3E /* NanopressApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanopressApp.swift; sourceTree = "<group>"; };
+		09685297933511208058F7CF /* AeroSpace.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AeroSpace.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		226D545E20A3CF547088F832 /* aerospace-package-symlink */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "aerospace-package-symlink"; path = "aerospace-package-symlink"; sourceTree = SOURCE_ROOT; };
 		84C35D8E25B61D4D1ADB1851 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8FE45A887100EB70912B07F0 /* default-config.toml */ = {isa = PBXFileReference; path = "default-config.toml"; sourceTree = "<group>"; };
+		C0478B9656DB6C4D3F0BF374 /* NanopressApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NanopressApp.swift; sourceTree = "<group>"; };
 		CF85755BFF66B59A84F98262 /* AeroSpace.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AeroSpace.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -43,6 +43,15 @@
 			path = "../docs/config-examples";
 			sourceTree = "<group>";
 		};
+		1FC77DA99C64AB2EB7EEE247 /* NanopressApp */ = {
+			isa = PBXGroup;
+			children = (
+				C0478B9656DB6C4D3F0BF374 /* NanopressApp.swift */,
+			);
+			name = NanopressApp;
+			path = ../Sources/NanopressApp;
+			sourceTree = "<group>";
+		};
 		21E15F84087042E63C0150AB /* resources */ = {
 			isa = PBXGroup;
 			children = (
@@ -56,8 +65,8 @@
 		393942C56466FDBBE35F9EC0 = {
 			isa = PBXGroup;
 			children = (
-				6F6BCFA26BF3E35072EF2C77 /* NanopressApp */,
 				0E0109AE5F7881520B0D2384 /* config-examples */,
+				1FC77DA99C64AB2EB7EEE247 /* NanopressApp */,
 				3A1FF786C84025133F96138D /* Packages */,
 				21E15F84087042E63C0150AB /* resources */,
 				62BEA6F49E6648E2EE3C208F /* Products */,
@@ -75,18 +84,9 @@
 		62BEA6F49E6648E2EE3C208F /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				09685297933511208058F7CF /* nanopress.app */,
+				09685297933511208058F7CF /* AeroSpace.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		6F6BCFA26BF3E35072EF2C77 /* NanopressApp */ = {
-			isa = PBXGroup;
-			children = (
-				18C104E927E079E60C91AE3E /* NanopressApp.swift */,
-			);
-			name = NanopressApp;
-			path = ../Sources/NanopressApp;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -109,7 +109,7 @@
 				018E55979F61DA6DA6DCB442 /* AppBundle */,
 			);
 			productName = AeroSpace;
-			productReference = 09685297933511208058F7CF /* nanopress.app */;
+			productReference = 09685297933511208058F7CF /* AeroSpace.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -162,7 +162,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C40E0D9C06086C58955237D9 /* NanopressApp.swift in Sources */,
+				E5F81F6BB2A698C1F6796746 /* NanopressApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -232,7 +232,7 @@
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.2;
-				TOOLCHAINS = org.swift.640202609131a;
+				TOOLCHAINS = "";
 			};
 			name = Debug;
 		};
@@ -309,7 +309,7 @@
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.2;
-				TOOLCHAINS = org.swift.640202609131a;
+				TOOLCHAINS = "";
 			};
 			name = Release;
 		};

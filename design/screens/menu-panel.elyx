@@ -1,0 +1,563 @@
+import "../tokens/colors.elyx" as colorTokens
+import "../tokens/lengths.elyx" as lengthTokens
+import "../components/menu-panel.elyx" as panel
+
+// The panel that opens from the menu bar icon. Mirrors Sources/AppBundle/ui/MenuPanel.swift
+menuPanel = frame {
+  left: 40px,
+  top: 40px,
+  width: lengthTokens.lengths.panel-width,
+  height: .auto,
+  layout: {direction: .column},
+  fill: colorTokens.colors.material,
+  border: colorTokens.colors.card-border,
+  shadow: [
+    {
+      drop-shadow: {
+        color: colorTokens.colors.shadow-near,
+        offset: point(0px, 1px),
+        blur-radius: 1px
+      }
+    },
+    {
+      drop-shadow: {
+        color: colorTokens.colors.shadow-far,
+        offset: point(0px, 8px),
+        blur-radius: 24px
+      }
+    }
+  ],
+  filter: {type: .background-blur, radius: 30px},
+  corner-radius: 10px,
+  corner-smoothing: 0.6,
+  overflow: .visible,
+  children: [header, topSeparator, body, bottomSeparator, footer],
+
+  header = frame {
+    width: 100%,
+    height: .auto,
+    layout: {justify-content: .space-between, align-items: .center},
+    overflow: .visible,
+    padding: [12px, lengthTokens.lengths.panel-margin],
+    children: [appName, tilingControls],
+
+    appName = text {
+      fill: colorTokens.colors.primary,
+      contents: "nanopress",
+      font-size: 13,
+      font-family: "SF Pro",
+      font-style: "Semibold"
+    }
+
+    tilingControls = frame {
+      width: .auto,
+      height: .auto,
+      layout: {align-items: .center, item-gap: 8px},
+      overflow: .visible,
+      children: [tilingLabel, tilingSwitch],
+
+      tilingLabel = text {
+        fill: colorTokens.colors.secondary,
+        contents: "On",
+        font-size: 12,
+        font-family: "SF Pro"
+      }
+
+      tilingSwitch = frame : panel.miniSwitch {
+        left: 0px,
+        top: 0px
+      }
+    }
+  }
+
+  topSeparator = frame {
+    width: 100%,
+    height: 1px,
+    fill: colorTokens.colors.separator
+  }
+
+  body = frame {
+    width: 100%,
+    height: .auto,
+    layout: {direction: .column, item-gap: lengthTokens.lengths.section-gap},
+    overflow: .visible,
+    padding: [16px, lengthTokens.lengths.panel-margin],
+    children: [layoutSection, appearanceRow, arrangeSection],
+
+    layoutSection = frame {
+      width: 100%,
+      height: .auto,
+      layout: {direction: .column, item-gap: 8px},
+      children: [layoutHeader, workspaces, map],
+
+      layoutHeader = frame : panel.sectionHeader {
+        left: 0px,
+        top: 0px,
+
+        sectionDetail {
+          display: .none,
+          contents: "Drag windows or the gaps between them"
+        }
+
+        sectionTitle {
+          contents: "Layout"
+        }
+      }
+
+      // Every workspace: click one to switch, drop a window from the map on one to move it there
+      workspaces = frame : panel.workspaceStrip {
+        left: 0px,
+        top: 0px
+      }
+
+      map = frame : panel.layoutMap {
+        left: 0px,
+        top: 0px
+      }
+    }
+
+    arrangeSection = frame {
+      width: 100%,
+      height: .auto,
+      layout: {direction: .column, item-gap: 8px},
+      children: [arrangeHeader, arrangeControls],
+
+      arrangeHeader = frame : panel.sectionHeader {
+        left: 0px,
+        top: 0px,
+        layout.align-items: .center,
+        layout.item-gap: 8px,
+        layout.justify-content: .start,
+        overrides: [insert(counts, after = panel.sectionHeader.sectionDetail)],
+
+        sectionDetail {
+          display: .none
+        }
+
+        sectionTitle {
+          contents: "Auto-arrange with"
+        }
+      }
+
+      arrangeControls = frame {
+        width: 100%,
+        height: .auto,
+        layout: {direction: .column, item-gap: 10px},
+        children: cards,
+
+        cards = frame {
+          width: 100%,
+          height: .auto,
+          layout: {item-gap: lengthTokens.lengths.card-gap},
+          children: [bestFit, secondOption, thirdOption],
+
+          // Resting on it moved the windows there
+          bestFit = frame : panel.arrangeCardTried {
+            left: 0px,
+            top: 0px
+          }
+
+          // Three columns
+          secondOption = frame : panel.arrangeCard {
+            left: 0px,
+            top: 0px,
+
+            thumbnail {
+              mainTile {
+                thumbIcon {
+                  left: 8.5px
+                }
+
+                width: 41px
+              }
+
+              topTile {
+                left: 44.5px,
+
+                slackIcon {
+                  left: 8.5px,
+                  top: 22.3px
+                }
+
+                width: 41px,
+                height: 68.6px
+              }
+
+              bottomTile {
+                left: 87.5px,
+
+                terminalIcon {
+                  left: 5px,
+                  top: 19.8px
+                }
+
+                top: 1.9px,
+                width: 39px,
+                height: 68.6px
+              }
+            }
+
+            rank {
+              contents: "Option 2",
+              font-style: "Regular"
+            }
+          }
+
+          // Dia above Slack, Ghostty on its own
+          thirdOption = frame : panel.arrangeCard {
+            left: 0px,
+            top: 0px,
+
+            thumbnail {
+              topTile {
+                left: 1.5px,
+
+                slackIcon {
+                  left: 22.5px
+                }
+
+                top: 37.5px,
+                width: 69px
+              }
+
+              mainTile {
+                thumbIcon {
+                  top: 4.5px
+                }
+
+                height: 33px
+              }
+
+              bottomTile {
+                top: 1.9px,
+
+                terminalIcon {
+                  top: 19.8px
+                }
+
+                height: 68.6px
+              }
+            }
+
+            rank {
+              contents: "Option 3",
+              font-style: "Regular"
+            }
+          }
+        }
+      }
+    }
+  }
+
+  spacingControl = frame {
+    left: 0px,
+    top: 0px,
+    width: 40%,
+    height: 24px,
+    layout: {align-items: .center, item-gap: 8px},
+    overflow: .visible,
+    children: [spacingHeader, spacingPicker],
+
+    spacingHeader = frame : panel.sectionHeader {
+      left: 0px,
+      top: 0px,
+      width: .auto,
+      overrides: [remove(panel.sectionHeader.sectionDetail)],
+
+      sectionTitle {
+        contents: "Spacing"
+      }
+    }
+
+    spacingPicker = frame : panel.popUpButton {
+      left: 0px,
+      top: 0px,
+      width: 100%
+    }
+  }
+
+  bottomSeparator = frame {
+    width: 100%,
+    height: 1px,
+    fill: colorTokens.colors.separator
+  }
+
+  footer = frame {
+    width: 100%,
+    height: .auto,
+    layout: {justify-content: .space-between, align-items: .center},
+    padding: [6px, 8px],
+    children: [preferencesButton, quitButton],
+
+    preferencesButton = frame : panel.footerButton {
+      left: 0px,
+      top: 0px,
+
+      buttonLabel {
+        contents: "Preferences"
+      }
+    }
+
+    quitButton = frame : panel.footerButton {
+      left: 0px,
+      top: 0px
+    }
+  }
+
+  appearanceRow = frame {
+    left: 0px,
+    top: 395px,
+    width: 100%,
+    height: .auto,
+    layout: {
+      justify-content: .space-between,
+      align-items: .center,
+      item-gap: 8px
+    },
+    overflow: .visible,
+    children: [spacingControl, backgroundControl]
+  }
+
+  backgroundControl = frame {
+    left: 254px,
+    top: 44px,
+    width: 40%,
+    height: 24px,
+    layout: {align-items: .center, item-gap: 8px},
+    overflow: .visible,
+    children: [spacingHeader, spacingPicker],
+
+    spacingHeader = frame : panel.sectionHeader {
+      left: 0px,
+      top: 0px,
+      width: .auto,
+      overrides: [remove(panel.sectionHeader.sectionDetail)],
+
+      sectionTitle {
+        contents: "Background"
+      }
+    }
+
+    spacingPicker = frame : panel.popUpButton {
+      left: 0px,
+      top: 0px,
+      width: 100%
+    }
+  }
+
+  counts = frame {
+    left: 131px,
+    width: .auto,
+    height: .auto,
+    layout: {item-gap: 4px},
+    children: [countOne, countTwo, countThree, countFour],
+
+    countOne = frame : panel.countChip {
+      left: 0px,
+      top: 0px,
+
+      count {
+        contents: "1"
+      }
+    }
+
+    countTwo = frame : panel.countChip {
+      left: 0px,
+      top: 0px
+    }
+
+    countThree = frame : panel.countChipSelected {
+      left: 0px,
+      top: 0px,
+      width: .auto,
+      padding-left: 16px,
+      padding-right: 16px,
+      layout.justify-content: .start,
+
+      count {
+        contents: "3 windows"
+      }
+    }
+
+    countFour = frame : panel.countChip {
+      left: 0px,
+      top: 0px,
+
+      count {
+        contents: "4"
+      }
+    }
+  }
+}
+
+// Dragging Slack onto the right half of Dia in the map. The panel is hidden and only the map floats over the
+// screen, with the real-size preview behind it
+draggingInMap = frame {
+  left: 640px,
+  top: 40px,
+  width: 720px,
+  height: 460px,
+  fill: colorTokens.colors.wallpaper,
+  children: [diaWindow, slackWindow, terminalWindow, floatingMap],
+
+  diaWindow = frame : desktopWindow {
+    left: 6px,
+    top: 6px,
+    width: 352px,
+    height: 448px
+  }
+
+  slackWindow = frame : desktopWindow {
+    left: 362px,
+    top: 6px,
+    width: 352px,
+    height: 222px
+  }
+
+  terminalWindow = frame : desktopWindow {
+    left: 362px,
+    top: 232px,
+    width: 352px,
+    height: 222px
+  }
+
+  // Sits where the map was in the panel
+  floatingMap = frame : panel.layoutMap {
+    left: 136px,
+    top: 104px,
+    overflow: .visible,
+    fill[0].color: colorTokens.colors.material,
+    filter[0].radius: 30px,
+    filter[0].type: .background-blur,
+    overrides: [
+      insert(origin, after = panel.layoutMap.terminalTile),
+      insert(highlight, after = origin),
+      insert(lifted, after = highlight),
+      remove(panel.layoutMap.slackTile)
+    ],
+    shadow[0].drop-shadow.blur-radius: 32px,
+    shadow[0].drop-shadow.color: colorTokens.colors.shadow-far,
+    shadow[0].drop-shadow.offset: [0px, 6px],
+
+    // The empty slot Slack was dragged out of
+    origin = frame : panel.mapTileOrigin {
+      left: 228px,
+      top: 5.8px,
+      width: 217px,
+      height: 120px
+    }
+
+    highlight = frame : panel.dropHighlight {
+      left: 113.9px,
+      top: 7.3px,
+      width: 109.6px,
+      height: 240.3px
+    }
+
+    // Follows the cursor
+    lifted = frame : panel.mapTileLifted {
+      left: 120px,
+      top: 70px,
+      width: 214px,
+      height: 117px
+    }
+  }
+}
+
+// A window on the mock desktop
+desktopWindow = frame {
+  left: 640px,
+  top: 600px,
+  width: 352px,
+  height: 222px,
+  fill: colorTokens.colors.window,
+  border: colorTokens.colors.window-border,
+  corner-radius: 10px,
+  corner-smoothing: 0.6,
+  children: titleBar,
+
+  titleBar = frame {
+    left: 0px,
+    top: 0px,
+    width: 100%,
+    height: 28px,
+    fill: colorTokens.colors.window-chrome
+  }
+}
+
+// A stack on the desktop: Dia in front, Messages and Mail behind it as tabs. "+" opened the Bring here menu, and
+// the note reports a stack nanopress made when a resize squeezed Mail out
+stackOnDesktop = frame {
+  left: 1500px,
+  top: 40px,
+  width: 900px,
+  height: 560px,
+  fill: colorTokens.colors.wallpaper,
+  overflow: .visible,
+  children: [leftWindow, tabBar, stackWindow, bringHere, note],
+
+  leftWindow = frame : desktopWindow {
+    left: 8px,
+    top: 8px,
+    width: 438px,
+    height: 544px
+  }
+
+  // 4px above the stack, as wide as it
+  tabBar = frame : panel.stackTabBar {
+    left: 454px,
+    top: 8px,
+    width: 438px,
+
+    addTab {
+      fill[0].color: colorTokens.colors.row-hover
+    }
+
+    frontTab {
+      width: 170px
+    }
+
+    messagesTab {
+      width: 110px
+    }
+
+    mailTab {
+      width: 110px
+    }
+  }
+
+  stackWindow = frame : desktopWindow {
+    left: 454px,
+    top: 40px,
+    width: 438px,
+    height: 512px
+  }
+
+  // Opens under the "+"
+  bringHere = frame : panel.bringHereMenu {
+    left: 590px,
+    top: 40px
+  }
+
+  // At the bottom of the tile it's about
+  note = frame : panel.layoutToast {
+    left: 530px,
+    top: 494px
+  }
+}
+
+// The footer's Preferences menu, with the Floating Apps submenu open
+preferencesOpen = frame {
+  left: 40px,
+  top: 900px,
+  width: 620px,
+  height: 300px,
+  fill: colorTokens.colors.wallpaper,
+  overflow: .visible,
+  children: menus,
+
+  menus = frame : panel.preferencesMenu {
+    left: 24px,
+    top: 24px
+  }
+}

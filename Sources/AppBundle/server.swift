@@ -59,6 +59,12 @@ private func newConnection(_ connection: NWConnection) async { // todo add exit 
                 """
             return await answerToClient(exitCode: EXIT_CODE_TWO, stderr: msg)
         }) else { continue }
+        // A tool call from `nanopress mcp`. It isn't a command, so it doesn't go through parseCommand
+        if request.args == [agentRequestArg] {
+            let (exitCode, stdout, stderr) = await handleAgentRequest(request.stdin)
+            await answerToClient(exitCode: exitCode, stdout: stdout, stderr: stderr)
+            continue
+        }
         // Handle subscribe before parseCommand (subscribe doesn't have a Command impl)
         if request.args.first == "subscribe" {
             switch parseSubscribeCmdArgs(request.args.slice(1...).orDie()) {

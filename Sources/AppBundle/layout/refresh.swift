@@ -41,6 +41,8 @@ func runHeavyCompleteRefreshSession(
             await refreshModel_nonCancellable()
             try await refresh()
             gcMonitors()
+            adaptToDisplaySetup()
+            for monitor in monitorInfos { unstackWhereThereIsRoom(monitor.activeWorkspace) }
 
             updateTrayText()
             SecureInputPanel.shared.refresh()
@@ -159,6 +161,8 @@ private func layoutWorkspaces() async throws {
             workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
             try await workspace.layoutWorkspace() // Unhide tiling windows from corner
         }
+        StackTabs.shared.update()
+        GapHandles.shared.update()
         return
     }
     let monitors = monitorInfos
@@ -199,6 +203,9 @@ private func layoutWorkspaces() async throws {
             try await (window as! MacWindow).hideInCorner(corner) // todo as!
         }
     }
+    saveLayoutIfChanged()
+    StackTabs.shared.update()
+    GapHandles.shared.update()
 }
 
 @MainActor

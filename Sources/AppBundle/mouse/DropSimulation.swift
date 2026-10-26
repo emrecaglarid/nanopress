@@ -198,6 +198,12 @@ extension SimNode {
                 }
             case .accordion:
                 guard let mruIndex = mostRecentChild?.ownIndex else { return }
+                if children.count > 1 && !isUnitTest {
+                    for child in children {
+                        child.layoutRecursive(point.addingYOffset(stackWindowsOffset()), width: width, height: height - stackTabsHeight, gaps)
+                    }
+                    return
+                }
                 let padding = CGFloat(config.accordionPadding)
                 for (index, child) in children.enumerated() {
                     let (lPadding, rPadding): (CGFloat, CGFloat) = switch index {

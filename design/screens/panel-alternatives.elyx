@@ -1,0 +1,1279 @@
+import "../tokens/colors.elyx" as colorTokens
+import "../tokens/lengths.elyx" as lengthTokens
+import "../components/menu-panel.elyx" as panel
+
+// Alternatives for the menu panel and the stack tabs, from the interface review. The panel as built is in
+// menu-panel.elyx
+// MARK: Panel A, map first
+// The map leads without a title. Workspaces become small numbered thumbnails in the header, the settings move into
+// Preferences, and the count is a native segmented control so that accent stays for "current"
+panelMapFirst = frame {
+  left: 40px,
+  top: 80px,
+  width: lengthTokens.lengths.panel-width,
+  height: .auto,
+  layout: {direction: .column},
+  fill: colorTokens.colors.material,
+  border: colorTokens.colors.card-border,
+  shadow: {
+    drop-shadow: {
+      color: colorTokens.colors.shadow-far,
+      offset: point(0px, 8px),
+      blur-radius: 24px
+    }
+  },
+  corner-radius: 10px,
+  corner-smoothing: 0.6,
+  overflow: .visible,
+  children: [aHeader, aSeparator, aBody, aFooterSeparator, aFooter],
+
+  aHeader = frame {
+    width: 100%,
+    height: .auto,
+    layout: {justify-content: .space-between, align-items: .center},
+    overflow: .visible,
+    padding: [10px, lengthTokens.lengths.panel-margin],
+    children: [aTitle, aWorkspaces, aSwitch],
+
+    aTitle = text {
+      fill: colorTokens.colors.primary,
+      contents: "nanopress",
+      font-size: 13,
+      font-family: "SF Pro",
+      font-style: "Semibold"
+    }
+
+    aWorkspaces = frame {
+      width: .auto,
+      height: .auto,
+      layout: {align-items: .center, item-gap: 6px},
+      children: [aSpaceOne, aSpaceTwo, aSpaceThree],
+
+      aSpaceOne = frame : workspaceChipCurrent {
+        left: 0px,
+        top: 0px
+      }
+
+      aSpaceTwo = frame : workspaceChip {
+        left: 0px,
+        top: 0px
+      }
+
+      aSpaceThree = frame : workspaceChipEmpty {
+        left: 0px,
+        top: 0px
+      }
+    }
+
+    aSwitch = frame : panel.miniSwitch {
+      left: 0px,
+      top: 0px
+    }
+  }
+
+  aSeparator = frame {
+    width: 100%,
+    height: 1px,
+    fill: colorTokens.colors.separator
+  }
+
+  aBody = frame {
+    width: 100%,
+    height: .auto,
+    layout: {direction: .column, item-gap: lengthTokens.lengths.section-gap},
+    overflow: .visible,
+    padding: [16px, lengthTokens.lengths.panel-margin],
+    children: [aMap, aArrange],
+
+    // The one raised surface: tiles are fills without outlines, tabs sit on the tile without a bar
+    aMap = frame : quietMap {
+      left: 0px,
+      top: 0px
+    }
+
+    aArrange = frame {
+      width: 100%,
+      height: .auto,
+      layout: {direction: .column, item-gap: 10px},
+      overflow: .visible,
+      children: [aArrangeHeader, aCards],
+
+      aArrangeHeader = frame {
+        width: 100%,
+        height: .auto,
+        layout: {justify-content: .space-between, align-items: .center},
+        overflow: .visible,
+        children: [aArrangeTitle, aCount],
+
+        aArrangeTitle = text {
+          fill: colorTokens.colors.primary,
+          contents: "Auto-arrange",
+          font-size: 13,
+          font-family: "SF Pro",
+          font-style: "Semibold"
+        }
+
+        // Neutral when selected, like every native segmented control
+        aCount = frame : countPicker {
+          left: 0px,
+          top: 0px
+        }
+      }
+
+      aCards = frame {
+        width: 100%,
+        height: .auto,
+        layout: {item-gap: lengthTokens.lengths.card-gap},
+        children: [aBest, aSecond, aThird],
+
+        aBest = frame : quietCardTried {
+          left: 0px,
+          top: 0px
+        }
+
+        aSecond = frame : quietCard {
+          left: 0px,
+          top: 0px,
+
+          rank {
+            contents: "Option 2"
+          }
+        }
+
+        aThird = frame : quietCard {
+          left: 0px,
+          top: 0px,
+
+          rank {
+            contents: "Option 3"
+          }
+        }
+      }
+    }
+  }
+
+  aFooterSeparator = frame {
+    width: 100%,
+    height: 1px,
+    fill: colorTokens.colors.separator
+  }
+
+  aFooter = frame {
+    width: 100%,
+    height: .auto,
+    layout: {justify-content: .space-between, align-items: .center},
+    padding: [6px, 8px],
+    children: [aPreferences, aQuit],
+
+    // Spacing, Background and Floating Apps live here
+    aPreferences = frame : panel.footerButton {
+      left: 0px,
+      top: 0px,
+
+      buttonLabel {
+        fill[0].color: colorTokens.colors.secondary,
+        contents: "Preferences"
+      }
+    }
+
+    aQuit = frame : panel.footerButton {
+      left: 0px,
+      top: 0px,
+
+      buttonLabel {
+        fill[0].color: colorTokens.colors.secondary
+      }
+    }
+  }
+}
+
+// MARK: Panel B, two zones
+// What's on screen in one raised block on top, settings as plain macOS rows below
+panelTwoZones = frame {
+  left: 640px,
+  top: 80px,
+  width: lengthTokens.lengths.panel-width,
+  height: .auto,
+  layout: {direction: .column},
+  fill: colorTokens.colors.material,
+  border: colorTokens.colors.card-border,
+  shadow: {
+    drop-shadow: {
+      color: colorTokens.colors.shadow-far,
+      offset: point(0px, 8px),
+      blur-radius: 24px
+    }
+  },
+  corner-radius: 10px,
+  corner-smoothing: 0.6,
+  overflow: .visible,
+  children: [bHeader, bSeparator, bBody, bFooterSeparator, bFooter],
+
+  bHeader = frame {
+    width: 100%,
+    height: .auto,
+    layout: {justify-content: .space-between, align-items: .center},
+    overflow: .visible,
+    padding: [10px, lengthTokens.lengths.panel-margin],
+    children: [bTitle, bSwitch],
+
+    bTitle = text {
+      fill: colorTokens.colors.primary,
+      contents: "nanopress",
+      font-size: 13,
+      font-family: "SF Pro",
+      font-style: "Semibold"
+    }
+
+    bSwitch = frame : panel.miniSwitch {
+      left: 0px,
+      top: 0px
+    }
+  }
+
+  bSeparator = frame {
+    width: 100%,
+    height: 1px,
+    fill: colorTokens.colors.separator
+  }
+
+  bBody = frame {
+    width: 100%,
+    height: .auto,
+    layout: {direction: .column, item-gap: lengthTokens.lengths.section-gap},
+    overflow: .visible,
+    padding: [16px, lengthTokens.lengths.panel-margin],
+    children: [bScreen, bArrange, bSettings],
+
+    // Workspaces and the map share one surface: they're both "what's on screen"
+    bScreen = frame {
+      width: 100%,
+      height: .auto,
+      layout: {direction: .column, item-gap: 10px},
+      fill: colorTokens.colors.well-fill,
+      corner-radius: 10px,
+      overflow: .visible,
+      padding: 8px,
+      children: [bWorkspaces, bMap],
+
+      bWorkspaces = frame {
+        width: 100%,
+        height: .auto,
+        layout: {align-items: .center, item-gap: 6px},
+        children: [bSpaceOne, bSpaceTwo, bSpaceThree],
+
+        bSpaceOne = frame : workspaceChipCurrent {
+          left: 0px,
+          top: 0px
+        }
+
+        bSpaceTwo = frame : workspaceChip {
+          left: 0px,
+          top: 0px
+        }
+
+        bSpaceThree = frame : workspaceChipEmpty {
+          left: 0px,
+          top: 0px
+        }
+      }
+
+      bMap = frame : quietMap {
+        left: 0px,
+        top: 0px,
+        width: 432px,
+        height: 243px,
+        fill[0].color: .transparent
+      }
+    }
+
+    bArrange = frame {
+      width: 100%,
+      height: .auto,
+      layout: {direction: .column, item-gap: 10px},
+      overflow: .visible,
+      children: [bArrangeHeader, bCards],
+
+      bArrangeHeader = frame {
+        width: 100%,
+        height: .auto,
+        layout: {justify-content: .space-between, align-items: .center},
+        overflow: .visible,
+        children: [bArrangeTitle, bCount],
+
+        bArrangeTitle = text {
+          fill: colorTokens.colors.primary,
+          contents: "Auto-arrange",
+          font-size: 13,
+          font-family: "SF Pro",
+          font-style: "Semibold"
+        }
+
+        bCount = frame : countPicker {
+          left: 0px,
+          top: 0px
+        }
+      }
+
+      // One option: a full-width row instead of a lone card
+      bCards = frame : arrangeRow {
+        left: 0px,
+        top: 0px
+      }
+    }
+
+    bSettings = frame {
+      width: 100%,
+      height: .auto,
+      layout: {direction: .column},
+      overflow: .visible,
+      children: [bSpacing, bRowSeparator, bBackground],
+
+      bSpacing = frame : settingRow {
+        left: 0px,
+        top: 0px
+      }
+
+      bRowSeparator = frame {
+        width: 100%,
+        height: 1px,
+        fill: colorTokens.colors.separator
+      }
+
+      bBackground = frame : settingRow {
+        left: 0px,
+        top: 0px,
+
+        settingLabel {
+          contents: "Background"
+        }
+      }
+    }
+  }
+
+  bFooterSeparator = frame {
+    width: 100%,
+    height: 1px,
+    fill: colorTokens.colors.separator
+  }
+
+  bFooter = frame {
+    width: 100%,
+    height: .auto,
+    layout: {justify-content: .space-between, align-items: .center},
+    padding: [6px, 8px],
+    children: [bPreferences, bQuit],
+
+    bPreferences = frame : panel.footerButton {
+      left: 0px,
+      top: 0px,
+
+      buttonLabel {
+        fill[0].color: colorTokens.colors.secondary,
+        contents: "Preferences"
+      }
+    }
+
+    bQuit = frame : panel.footerButton {
+      left: 0px,
+      top: 0px,
+
+      buttonLabel {
+        fill[0].color: colorTokens.colors.secondary
+      }
+    }
+  }
+}
+
+// MARK: Panel C, workspaces down the side
+// Like Spaces in Mission Control: a column of workspaces left of the map. Wider, and the map gets smaller
+panelSideColumn = frame {
+  left: 1240px,
+  top: 80px,
+  width: 560px,
+  height: .auto,
+  layout: {direction: .column},
+  fill: colorTokens.colors.material,
+  border: colorTokens.colors.card-border,
+  shadow: {
+    drop-shadow: {
+      color: colorTokens.colors.shadow-far,
+      offset: point(0px, 8px),
+      blur-radius: 24px
+    }
+  },
+  corner-radius: 10px,
+  corner-smoothing: 0.6,
+  overflow: .visible,
+  children: [cHeader, cSeparator, cBody, cFooterSeparator, cFooter],
+
+  cHeader = frame {
+    width: 100%,
+    height: .auto,
+    layout: {justify-content: .space-between, align-items: .center},
+    overflow: .visible,
+    padding: [10px, lengthTokens.lengths.panel-margin],
+    children: [cTitle, cSwitch],
+
+    cTitle = text {
+      fill: colorTokens.colors.primary,
+      contents: "nanopress",
+      font-size: 13,
+      font-family: "SF Pro",
+      font-style: "Semibold"
+    }
+
+    cSwitch = frame : panel.miniSwitch {
+      left: 0px,
+      top: 0px
+    }
+  }
+
+  cSeparator = frame {
+    width: 100%,
+    height: 1px,
+    fill: colorTokens.colors.separator
+  }
+
+  cBody = frame {
+    width: 100%,
+    height: .auto,
+    layout: {direction: .column, item-gap: lengthTokens.lengths.section-gap},
+    overflow: .visible,
+    padding: [16px, lengthTokens.lengths.panel-margin],
+    children: [cScreen, cArrange],
+
+    cScreen = frame {
+      width: 100%,
+      height: .auto,
+      layout: {item-gap: 12px},
+      children: [cWorkspaces, cMap],
+
+      cWorkspaces = frame {
+        width: .auto,
+        height: .auto,
+        layout: {direction: .column, item-gap: 8px},
+        children: [cSpaceOne, cSpaceTwo, cSpaceThree],
+
+        cSpaceOne = frame : panel.workspaceMiniFocused {
+          left: 0px,
+          top: 0px,
+          width: 72px,
+
+          miniMap {
+            miniLeftTile {
+              miniDia {
+                left: 8.5px,
+                top: 9.5px
+              }
+
+              width: 33px,
+              height: 35px
+            }
+
+            miniRightTile {
+              left: 37px,
+
+              miniMessages {
+                left: 8px,
+                top: 9.5px
+              }
+
+              width: 32px,
+              height: 35px
+            }
+
+            width: 72px,
+            height: 41px
+          }
+        }
+
+        cSpaceTwo = frame : panel.workspaceMini {
+          left: 0px,
+          top: 0px,
+          width: 72px,
+
+          miniMap {
+            miniLeftTile {
+              miniDia {
+                left: 8.5px,
+                top: 9.5px
+              }
+
+              width: 33px,
+              height: 35px
+            }
+
+            miniRightTile {
+              left: 37px,
+
+              miniMessages {
+                left: 8px,
+                top: 9.5px
+              }
+
+              width: 32px,
+              height: 35px
+            }
+
+            width: 72px,
+            height: 41px
+          }
+        }
+
+        cSpaceThree = frame : panel.workspaceMiniEmpty {
+          left: 0px,
+          top: 0px,
+          width: 72px,
+
+          miniMap {
+            width: 72px,
+            height: 41px
+          }
+        }
+      }
+
+      cMap = frame : quietMap {
+        left: 0px,
+        top: 0px,
+        width: 444px,
+        height: 250px
+      }
+    }
+
+    cArrange = frame {
+      width: 100%,
+      height: .auto,
+      layout: {direction: .column, item-gap: 10px},
+      overflow: .visible,
+      children: [cArrangeHeader, cCards],
+
+      cArrangeHeader = frame {
+        width: 100%,
+        height: .auto,
+        layout: {justify-content: .space-between, align-items: .center},
+        overflow: .visible,
+        children: [cArrangeTitle, cCount],
+
+        cArrangeTitle = text {
+          fill: colorTokens.colors.primary,
+          contents: "Auto-arrange",
+          font-size: 13,
+          font-family: "SF Pro",
+          font-style: "Semibold"
+        }
+
+        cCount = frame : countPicker {
+          left: 0px,
+          top: 0px
+        }
+      }
+
+      cCards = frame {
+        width: 100%,
+        height: .auto,
+        layout: {item-gap: lengthTokens.lengths.card-gap},
+        children: [cBest, cSecond, cThird],
+
+        cBest = frame : quietCardTried {
+          left: 0px,
+          top: 0px,
+          width: 170px
+        }
+
+        cSecond = frame : quietCard {
+          left: 0px,
+          top: 0px,
+          width: 170px,
+
+          rank {
+            contents: "Option 2"
+          }
+        }
+
+        cThird = frame : quietCard {
+          left: 0px,
+          top: 0px,
+          width: 170px,
+
+          rank {
+            contents: "Option 3"
+          }
+        }
+      }
+    }
+  }
+
+  cFooterSeparator = frame {
+    width: 100%,
+    height: 1px,
+    fill: colorTokens.colors.separator
+  }
+
+  cFooter = frame {
+    width: 100%,
+    height: .auto,
+    layout: {justify-content: .space-between, align-items: .center},
+    padding: [6px, 8px],
+    children: [cPreferences, cQuit],
+
+    cPreferences = frame : panel.footerButton {
+      left: 0px,
+      top: 0px,
+
+      buttonLabel {
+        fill[0].color: colorTokens.colors.secondary,
+        contents: "Preferences"
+      }
+    }
+
+    cQuit = frame : panel.footerButton {
+      left: 0px,
+      top: 0px,
+
+      buttonLabel {
+        fill[0].color: colorTokens.colors.secondary
+      }
+    }
+  }
+}
+
+// MARK: Tabs 1, compact bar
+// As wide as its tabs, at the stack's leading edge. See-through blur, no shadow, 24 tall. "+" shows on hover
+tabsCompact = frame {
+  left: 40px,
+  top: 1000px,
+  width: 900px,
+  height: 460px,
+  fill: colorTokens.colors.wallpaper,
+  overflow: .visible,
+  children: [t1Left, t1Bar, t1Stack, t1Caption],
+
+  t1Left = frame : stackWindow {
+    left: 8px,
+    top: 8px,
+    width: 438px,
+    height: 444px
+  }
+
+  t1Bar = frame {
+    left: 454px,
+    top: 8px,
+    width: .auto,
+    height: 24px,
+    layout: {align-items: .center, item-gap: 2px},
+    fill: colorTokens.colors.material,
+    border: colorTokens.colors.separator,
+    filter: {type: .background-blur, radius: 20px},
+    corner-radius: 100px,
+    overflow: .visible,
+    padding: 2px,
+    children: [t1Front, t1Messages, t1Mail],
+
+    t1Front = frame : quietTabFront {
+      left: 0px,
+      top: 0px
+    }
+
+    t1Messages = frame : quietTab {
+      left: 0px,
+      top: 0px
+    }
+
+    t1Mail = frame : quietTab {
+      left: 0px,
+      top: 0px,
+      overrides: [
+        insert(t1MailIcon, after = .nil),
+        remove(quietTab.quietTabIcon)
+      ],
+
+      quietTabTitle {
+        contents: "Mail"
+      }
+
+      t1MailIcon = frame : panel.appIconTerminal {
+        width: 14px,
+        height: 14px,
+        corner-radius: 3.5px
+      }
+    }
+  }
+
+  t1Stack = frame : stackWindow {
+    left: 454px,
+    top: 36px,
+    width: 438px,
+    height: 416px
+  }
+
+  t1Caption = text {
+    left: 0px,
+    top: 472px,
+    fill: colorTokens.colors.secondary,
+    contents: "Tabs 1: compact bar, as wide as its tabs",
+    font-size: 13,
+    font-family: "SF Pro"
+  }
+}
+
+// MARK: Tabs 2, attached
+// No bar. The front tab takes the window's color and joins its top edge, like a browser. The rest are text
+tabsAttached = frame {
+  left: 1040px,
+  top: 1000px,
+  width: 900px,
+  height: 460px,
+  fill: colorTokens.colors.wallpaper,
+  overflow: .visible,
+  children: [t2Left, t2Stack, t2Front, t2Messages, t2Mail, t2Caption],
+
+  t2Left = frame : stackWindow {
+    left: 8px,
+    top: 8px,
+    width: 438px,
+    height: 444px
+  }
+
+  t2Stack = frame : stackWindow {
+    left: 454px,
+    top: 34px,
+    width: 438px,
+    height: 418px
+  }
+
+  // Sits on the window: same fill, no bottom corners, overlapping the window's edge by 1px
+  t2Front = frame : quietTab {
+    left: 462px,
+    top: 8px,
+    height: 27px,
+    corner-radius: [8px, 8px, 0px, 0px],
+    padding-left: 12px,
+    padding-right: 12px,
+    fill[0].color: colorTokens.colors.window-chrome,
+    overrides: [
+      insert(t2FrontIcon, after = .nil),
+      remove(quietTab.quietTabIcon)
+    ],
+
+    quietTabTitle {
+      fill[0].color: colorTokens.colors.primary,
+      contents: "Dia: Kytöniitty listing",
+      font-style: "Medium"
+    }
+
+    t2FrontIcon = frame : panel.appIcon {
+      width: 14px,
+      height: 14px,
+      corner-radius: 3.5px
+    }
+  }
+
+  t2Messages = frame : quietTab {
+    left: 640px,
+    top: 10px,
+    opacity: 0.7
+  }
+
+  t2Mail = frame : quietTab {
+    left: 742px,
+    top: 10px,
+    opacity: 0.7,
+
+    quietTabTitle {
+      contents: "Mail"
+    }
+  }
+
+  t2Caption = text {
+    left: 0px,
+    top: 472px,
+    fill: colorTokens.colors.secondary,
+    contents: "Tabs 2: attached, like a browser",
+    font-size: 13,
+    font-family: "SF Pro"
+  }
+}
+
+// MARK: Tabs 3, icons only
+// A 20pt row of icons: the front one full strength with a dot under it, the rest dimmed. Titles show on hover
+tabsIcons = frame {
+  left: 2040px,
+  top: 1000px,
+  width: 900px,
+  height: 460px,
+  fill: colorTokens.colors.wallpaper,
+  overflow: .visible,
+  children: [t3Left, t3Row, t3Stack, t3Caption],
+
+  t3Left = frame : stackWindow {
+    left: 8px,
+    top: 8px,
+    width: 438px,
+    height: 444px
+  }
+
+  t3Row = frame {
+    left: 458px,
+    top: 6px,
+    width: .auto,
+    height: 22px,
+    layout: {align-items: .center, item-gap: 8px},
+    children: [t3Front, t3Messages, t3Mail],
+
+    t3Front = frame {
+      width: 16px,
+      height: 22px,
+      layout: {direction: .column, align-items: .center, item-gap: 2px},
+      children: [t3FrontIcon, t3Dot],
+
+      t3FrontIcon = frame : panel.appIcon {
+        width: 16px,
+        height: 16px,
+        corner-radius: 4px
+      }
+
+      t3Dot = frame {
+        width: 4px,
+        height: 4px,
+        fill: colorTokens.colors.primary,
+        corner-radius: 100px
+      }
+    }
+
+    t3Messages = frame : panel.appIconMessages {
+      width: 16px,
+      height: 16px,
+      opacity: 0.5,
+      corner-radius: 4px
+    }
+
+    t3Mail = frame : panel.appIconTerminal {
+      width: 16px,
+      height: 16px,
+      opacity: 0.5,
+      corner-radius: 4px
+    }
+  }
+
+  t3Stack = frame : stackWindow {
+    left: 454px,
+    top: 30px,
+    width: 438px,
+    height: 422px
+  }
+
+  t3Caption = text {
+    left: 0px,
+    top: 472px,
+    fill: colorTokens.colors.secondary,
+    contents: "Tabs 3: icons only",
+    font-size: 13,
+    font-family: "SF Pro"
+  }
+}
+
+// MARK: Parts for the alternatives
+// A workspace as a small numbered thumbnail, for the header
+workspaceChip = frame {
+  left: 40px,
+  top: 1600px,
+  width: 34px,
+  height: 22px,
+  layout: {justify-content: .center, align-items: .center},
+  fill: colorTokens.colors.well-fill,
+  border: colorTokens.colors.separator,
+  corner-radius: 5px,
+  children: chipNumber,
+
+  chipNumber = text {
+    fill: colorTokens.colors.secondary,
+    contents: "2",
+    font-size: 11,
+    font-family: "SF Pro",
+    font-style: "Medium"
+  }
+}
+
+@variant
+workspaceChipCurrent = frame : workspaceChip {
+  left: 120px,
+  top: 1600px,
+  border[0].color: colorTokens.colors.accent,
+  border[0].width: 1.5px,
+
+  chipNumber {
+    fill[0].color: colorTokens.colors.accent,
+    contents: "1",
+    font-style: "Semibold"
+  }
+}
+
+@variant
+workspaceChipEmpty = frame : workspaceChip {
+  left: 200px,
+  top: 1600px,
+  border[0].color: colorTokens.colors.tile-border,
+  border[0].dash: [3px, 2px],
+  fill[0].color: .transparent,
+
+  chipNumber {
+    fill[0].color: colorTokens.colors.tertiary,
+    contents: "3"
+  }
+}
+
+// The map with flat tiles: fills only, and tabs straight on the stack tile
+quietMap = frame {
+  left: 300px,
+  top: 1600px,
+  width: 448px,
+  height: 252px,
+  fill: colorTokens.colors.well-fill,
+  corner-radius: lengthTokens.lengths.card-radius-small,
+  children: [quietDia, quietSlack, quietGhostty],
+
+  quietDia = frame {
+    left: 3px,
+    top: 3px,
+    width: 220px,
+    height: 246px,
+    layout: {justify-content: .center, align-items: .center},
+    fill: colorTokens.colors.tile-fill,
+    corner-radius: lengthTokens.lengths.map-tile-radius,
+    children: quietDiaIcon,
+
+    quietDiaIcon = frame : panel.appIcon {
+      width: 32px,
+      height: 32px,
+      corner-radius: 8px
+    }
+  }
+
+  quietSlack = frame {
+    left: 226px,
+    top: 3px,
+    width: 219px,
+    height: 121px,
+    layout: {direction: .column, align-items: .center},
+    fill: colorTokens.colors.tile-fill,
+    corner-radius: lengthTokens.lengths.map-tile-radius,
+    overflow: .visible,
+    padding: 3px,
+    children: [quietSlackTabs, quietSlackBody],
+
+    quietSlackTabs = frame {
+      width: 100%,
+      height: .auto,
+      layout: {item-gap: 2px},
+      overflow: .visible,
+      children: [quietSlackFront, quietSlackMessages],
+
+      quietSlackFront = frame : panel.mapTabFront {
+        left: 0px,
+        top: 0px,
+        width: .auto
+      }
+
+      quietSlackMessages = frame : panel.mapTab {
+        left: 0px,
+        top: 0px,
+        width: .auto
+      }
+    }
+
+    quietSlackBody = frame {
+      width: 100%,
+      height: 100%,
+      layout: {justify-content: .center, align-items: .center},
+      children: quietSlackIcon,
+
+      quietSlackIcon = frame : panel.appIconSlack {
+        width: 32px,
+        height: 32px,
+        corner-radius: 8px
+      }
+    }
+  }
+
+  quietGhostty = frame {
+    left: 226px,
+    top: 127px,
+    width: 219px,
+    height: 122px,
+    layout: {justify-content: .center, align-items: .center},
+    fill: colorTokens.colors.tile-fill,
+    corner-radius: lengthTokens.lengths.map-tile-radius,
+    children: quietGhosttyIcon,
+
+    quietGhosttyIcon = frame : panel.appIconTerminal {
+      width: 32px,
+      height: 32px,
+      corner-radius: 8px
+    }
+  }
+}
+
+// A native segmented control for the count: the selected segment is white, not accent
+countPicker = frame {
+  left: 800px,
+  top: 1600px,
+  width: .auto,
+  height: 22px,
+  layout: {align-items: .stretch},
+  fill: colorTokens.colors.well-fill,
+  corner-radius: lengthTokens.lengths.row-radius,
+  overflow: .visible,
+  padding: 2px,
+  children: [countSegOne, countSegTwo, countSegThree, countSegFour],
+
+  countSegOne = frame : panel.segment {
+    left: 0px,
+    top: 0px,
+    width: 30px,
+    height: 18px,
+
+    segmentLabel {
+      contents: "1"
+    }
+  }
+
+  countSegTwo = frame : panel.segment {
+    left: 0px,
+    top: 0px,
+    width: 30px,
+    height: 18px,
+
+    segmentLabel {
+      contents: "2"
+    }
+  }
+
+  countSegThree = frame : panel.segmentSelected {
+    left: 0px,
+    top: 0px,
+    width: 70px,
+    height: 18px,
+
+    segmentLabel {
+      contents: "3 windows"
+    }
+  }
+
+  countSegFour = frame : panel.segment {
+    left: 0px,
+    top: 0px,
+    width: 30px,
+    height: 18px,
+
+    segmentLabel {
+      contents: "4"
+    }
+  }
+}
+
+// An Arrange card without the gray card behind it: the thumbnail alone, with its label
+quietCard = frame : panel.arrangeCard {
+  left: 40px,
+  top: 1900px,
+  fill[0].color: .transparent,
+
+  rank {
+    font-style: "Regular"
+  }
+}
+
+@variant
+quietCardTried = frame : quietCard {
+  left: 220px,
+  top: 1900px,
+  fill[0].color: colorTokens.colors.row-hover,
+
+  rank {
+    fill[0].color: colorTokens.colors.accent,
+    contents: "Best fit",
+    font-style: "Semibold"
+  }
+}
+
+// One option: thumbnail on the left, what it does on the right
+arrangeRow = frame {
+  left: 400px,
+  top: 1900px,
+  width: 448px,
+  height: .auto,
+  layout: {align-items: .center, item-gap: 12px},
+  fill: colorTokens.colors.row-hover,
+  corner-radius: lengthTokens.lengths.card-radius-small,
+  padding: 8px,
+  children: [rowThumbnail, rowText],
+
+  rowThumbnail = frame : panel.arrangeCard {
+    left: 0px,
+    top: 0px,
+    width: 112px,
+    padding-top: 0px,
+    padding-left: 0px,
+    padding-bottom: 0px,
+    padding-right: 0px,
+    fill[0].color: .transparent,
+
+    thumbnail {
+      mainTile {
+        thumbIcon {
+          left: 18px,
+          top: 18px
+        }
+
+        width: 60px,
+        height: 60px
+      }
+
+      topTile {
+        left: 64px,
+
+        slackIcon {
+          left: 11px,
+          top: 2px
+        }
+
+        width: 46px,
+        height: 28.5px
+      }
+
+      bottomTile {
+        left: 64px,
+
+        terminalIcon {
+          left: 8px,
+          top: 0px
+        }
+
+        top: 33px,
+        width: 46px,
+        height: 28.5px
+      }
+
+      width: 112px,
+      height: 63px
+    }
+
+    rank {
+      display: .none
+    }
+  }
+
+  rowText = frame {
+    width: 100%,
+    height: .auto,
+    layout: {direction: .column, item-gap: 2px},
+    children: [rowTitle, rowDetail],
+
+    rowTitle = text {
+      fill: colorTokens.colors.primary,
+      contents: "Arrange like this",
+      font-size: 13,
+      font-family: "SF Pro",
+      font-style: "Medium"
+    }
+
+    rowDetail = text {
+      fill: colorTokens.colors.secondary,
+      contents: "Dia on the left, Slack and Ghostty stacked on the right",
+      font-size: 12,
+      font-family: "SF Pro"
+    }
+  }
+}
+
+// A plain macOS settings row: label leading, menu trailing
+settingRow = frame {
+  left: 900px,
+  top: 1900px,
+  width: 448px,
+  height: 36px,
+  layout: {justify-content: .space-between, align-items: .center},
+  overflow: .visible,
+  children: [settingLabel, settingMenu],
+
+  settingLabel = text {
+    fill: colorTokens.colors.primary,
+    contents: "Spacing",
+    font-size: 13,
+    font-family: "SF Pro"
+  }
+
+  settingMenu = frame : panel.popUpButton {
+    left: 0px,
+    top: 0px
+  }
+}
+
+// A quiet tab: icon and title, no outline
+quietTab = frame {
+  left: 1400px,
+  top: 1900px,
+  width: .auto,
+  height: 20px,
+  layout: {align-items: .center, item-gap: 5px},
+  corner-radius: 100px,
+  padding: [0px, 8px],
+  children: [quietTabIcon, quietTabTitle],
+
+  quietTabIcon = frame : panel.appIconMessages {
+    width: 14px,
+    height: 14px,
+    corner-radius: 3.5px
+  }
+
+  quietTabTitle = text {
+    fill: colorTokens.colors.secondary,
+    contents: "Messages",
+    font-size: 12,
+    font-family: "SF Pro"
+  }
+}
+
+@variant
+quietTabFront = frame : quietTab {
+  left: 1560px,
+  top: 1900px,
+  fill[0].color: colorTokens.colors.segment-selected,
+  overrides: [
+    insert(quietFrontIcon, after = .nil),
+    remove(quietTab.quietTabIcon)
+  ],
+
+  quietTabTitle {
+    fill[0].color: colorTokens.colors.primary,
+    contents: "Dia: Kytöniitty listing",
+    font-style: "Medium"
+  }
+
+  quietFrontIcon = frame : panel.appIcon {
+    width: 14px,
+    height: 14px,
+    corner-radius: 3.5px
+  }
+}
+
+// A window on the mock desktop, with its title bar
+stackWindow = frame {
+  left: 1800px,
+  top: 1900px,
+  width: 300px,
+  height: 200px,
+  fill: colorTokens.colors.window,
+  border: colorTokens.colors.window-border,
+  corner-radius: 10px,
+  corner-smoothing: 0.6,
+  children: stackWindowTitleBar,
+
+  stackWindowTitleBar = frame {
+    left: 0px,
+    top: 0px,
+    width: 100%,
+    height: 28px,
+    fill: colorTokens.colors.window-chrome
+  }
+}

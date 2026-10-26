@@ -92,6 +92,8 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
     case hotkeyBinding
     case startup
     case socketServer(any CmdArgs)
+    /// A tool call from an AI agent, through `nanopress mcp`
+    case agent(String)
     case resetManipulatedWithMouse
     case ax(String)
     case focusFollowsMouse
@@ -114,6 +116,7 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
             case .menuBarButton: "menuBarButton"
             case .resetManipulatedWithMouse: "resetManipulatedWithMouse"
             case .socketServer(let args): "socketServer: \(args)"
+            case .agent(let tool): "agent(\(tool))"
             case .startup: "startup"
             case .focusFollowsMouse: "focusFollowsMouse"
         }

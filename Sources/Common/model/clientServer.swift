@@ -1,6 +1,8 @@
 import Foundation
 
 public let SOCKET_PROTOCOL_VERSION: UInt32 = 1
+/// The only argument of a request that carries a tool call from `nanopress mcp`, as JSON in stdin
+public let agentRequestArg = "__agent"
 
 public struct ServerAnswer: Codable, Sendable {
     public let exitCode: Int32

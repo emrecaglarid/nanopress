@@ -19,20 +19,25 @@ final class MacWindow: Window {
     static func getOrRegister(windowId: UInt32, macApp: MacApp) async throws -> MacWindow {
         if let existing = allWindowsMap[windowId] { return existing }
         let rect = try await macApp.getAxRect(windowId, .cancellable)
-        let data = try await unbindAndGetBindingDataForNewWindow(
-            windowId,
-            macApp,
-            isStartup
-                ? (rect?.center.monitorApproximation ?? mainMonitorInfo).activeWorkspace
-                : focus.workspace,
-            window: nil,
-            .cancellable,
-        )
+        let workspace = isStartup ? (rect?.center.monitorApproximation ?? mainMonitorInfo).activeWorkspace : focus.workspace
+        let before = SimNode.snapshot(workspace)
+        lastPlacementStackedOn = nil
+        lastPlacementJoinedStackOf = nil
+        let data = try await unbindAndGetBindingDataForNewWindow(windowId, macApp, workspace, window: nil, .cancellable)
+        let stackedOn = lastPlacementStackedOn
+        let joinedStackOf = lastPlacementJoinedStackOf
 
         // atomic synchronous section
         if let existing = allWindowsMap[windowId] { return existing }
         let window = MacWindow(windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
         allWindowsMap[windowId] = window
+        if let joinedStackOf, let stackWorkspace = joinedStackOf.nodeWorkspace {
+            let app = macApp.name ?? "window"
+            offerUndo("New \(app) window joined its stack", action: "Give it a tile", workspace: stackWorkspace, before: before, near: windowId)
+        } else if let stackedOn, !isStartup {
+            // Undo gives it a tile of its own after all
+            offerUndo("Stacked \(windowNames([windowId])) on \(windowNames([stackedOn.windowId])), the screen is full", action: "Give it a tile", workspace: workspace, before: before, near: windowId)
+        }
 
         try await debugWindowsIfRecording(window, .cancellable)
         if try await !restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window) {
@@ -216,14 +221,32 @@ private func unbindAndGetBindingDataForNewWindow(_ windowId: UInt32, _ macApp: M
     return switch try await macApp.getAxUiElementWindowType(windowId, windowLevel, cm) {
         case .popup: BindingData(parent: macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
         case .dialog: BindingData(parent: workspace.floatingWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
-        case .window: unbindAndGetBindingDataForNewTilingWindow(workspace, window: window)
+        case .window where NanopressSettings.shared.isFloatingApp(macApp.rawAppBundleId):
+            BindingData(parent: workspace.floatingWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+        case .window: unbindAndGetBindingDataForNewTilingWindow(workspace, window: window, bundleId: macApp.rawAppBundleId)
     }
 }
 
 // The function is private because it's unsafe. It leaves the window in unbound state
+/// The window whose stack a new window of the same app joined. See unbindAndGetBindingDataForNewTilingWindow
+@MainActor private var lastPlacementJoinedStackOf: Window? = nil
+
 @MainActor
-private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?) -> BindingData {
+private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?, bundleId: String? = nil) -> BindingData {
     window?.unbindFromParent() // It's important to unbind to get correct data from below
+    if let window, let data = StackTabs.shared.takePendingJoin(window.windowId) {
+        return data
+    }
+    // A new window of the app in front, with the app in a stack: like a new browser tab, it joins the stack
+    if window == nil && !isStartup, let bundleId, let focused = focus.windowOrNil, focused.app.rawAppBundleId == bundleId,
+       let stack = focused.parent as? TilingContainer, stack.layout == .accordion
+    {
+        lastPlacementJoinedStackOf = focused
+        return BindingData(parent: stack, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+    }
+    if window == nil && !isStartup, let data = bindingDataForNewWindowSplittingBiggestTile(workspace, app: bundleId) {
+        return data
+    }
     let mruWindow = workspace.mostRecentWindowRecursive
     if let mruWindow, let tilingParent = mruWindow.parent as? TilingContainer {
         return BindingData(

@@ -5,5 +5,16 @@ export lengths = tokens {
   card-radius: 15,
   card-padding-x: 16,
   card-padding-y: 11,
-  key-radius: 4
+  key-radius: 4,
+  // The menu panel
+  panel-width: 480,
+  panel-margin: 16,
+  row-inset: 8,
+  row-height: 28,
+  row-radius: 6,
+  section-gap: 20,
+  card-gap: 8,
+  card-radius-small: 8,
+  map-tile-radius: 4,
+  thumb-tile-radius: 3
 }

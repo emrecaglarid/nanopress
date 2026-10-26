@@ -1,0 +1,1523 @@
+import "../tokens/colors.elyx" as colorTokens
+import "../tokens/lengths.elyx" as lengthTokens
+
+// The parts of the menu panel. Mirrors Sources/AppBundle/ui/MenuPanel.swift and LayoutEditor.swift
+// MARK: Menu bar icon
+// The app icon's tiled screen with the landing tile filled. Drawn as a template image, so the menu bar tints it
+export menuBarIcon = frame {
+  left: 40px,
+  top: 40px,
+  width: 18px,
+  height: 14px,
+  children: [leftTile, topRightTile, landingTile],
+
+  leftTile = frame {
+    left: 0px,
+    top: 0px,
+    width: 9px,
+    height: 14px,
+    border: {color: colorTokens.colors.primary, width: 1.5px},
+    corner-radius: 2.5px
+  }
+
+  topRightTile = frame {
+    left: 9px,
+    top: 0px,
+    width: 9px,
+    height: 7px,
+    border: {color: colorTokens.colors.primary, width: 1.5px},
+    corner-radius: 2.5px
+  }
+
+  landingTile = frame {
+    left: 9px,
+    top: 7.5px,
+    width: 9px,
+    height: 6.5px,
+    fill: colorTokens.colors.primary,
+    corner-radius: 2.5px
+  }
+}
+
+// MARK: App icons
+// Stand-ins for the real app icons, which the panel takes from each window's app
+export appIcon = frame {
+  left: 120px,
+  top: 40px,
+  width: 24px,
+  height: 24px,
+  fill: {
+    linear-gradient: {
+      angle: 180deg,
+      stops: [
+        stop(0%, rgb(36.08%, 61.18%, 100%)),
+        stop(100%, rgb(14.9%, 38.82%, 92.16%))
+      ]
+    }
+  },
+  corner-radius: 6px,
+  corner-smoothing: 0.6
+}
+
+@variant
+export appIconSlack = frame : appIcon {
+  left: 160px,
+  top: 40px,
+  fill[0].linear-gradient.stops[0].color: rgb(44.31%, 21.18%, 47.45%),
+  fill[0].linear-gradient.stops[1].color: rgb(29.02%, 10.98%, 31.37%)
+}
+
+@variant
+export appIconTerminal = frame : appIcon {
+  left: 200px,
+  top: 40px,
+  fill[0].linear-gradient.stops[0].color: rgb(25.88%, 27.06%, 30.2%),
+  fill[0].linear-gradient.stops[1].color: rgb(10.98%, 11.37%, 12.94%)
+}
+
+@variant
+export appIconMessages = frame : appIcon {
+  left: 240px,
+  top: 40px,
+  fill[0].linear-gradient.stops[0].color: rgb(40.39%, 87.06%, 43.53%),
+  fill[0].linear-gradient.stops[1].color: rgb(14.9%, 72.94%, 25.88%)
+}
+
+// MARK: Controls
+// The tiling switch in the header, controlSize .mini
+export miniSwitch = frame {
+  left: 320px,
+  top: 40px,
+  width: 26px,
+  height: 15px,
+  layout: {justify-content: .end, align-items: .center},
+  fill: colorTokens.colors.accent,
+  corner-radius: 100px,
+  overflow: .visible,
+  padding: 1.5px,
+  children: knob,
+
+  knob = frame {
+    width: 12px,
+    height: 12px,
+    fill: colorTokens.colors.on-accent,
+    shadow: {
+      drop-shadow: {
+        color: colorTokens.colors.shadow-far,
+        offset: point(0px, 1px),
+        blur-radius: 2px
+      }
+    },
+    corner-radius: 100px
+  }
+}
+
+// Section title with an optional quiet hint on the right
+export sectionHeader = frame {
+  left: 40px,
+  top: 120px,
+  width: 448px,
+  height: .auto,
+  layout: {justify-content: .space-between, align-items: .end},
+  children: [sectionTitle, sectionDetail],
+
+  sectionTitle = text {
+    fill: colorTokens.colors.secondary,
+    contents: "Arrange",
+    font-size: 12,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+
+  sectionDetail = text {
+    fill: colorTokens.colors.tertiary,
+    contents: "Hover to try, click to keep",
+    font-size: 11,
+    font-family: "SF Pro"
+  }
+}
+
+// Number of windows on screen for Arrange
+export countChip = frame {
+  left: 560px,
+  top: 200px,
+  width: 28px,
+  height: 24px,
+  layout: {justify-content: .center, align-items: .center},
+  fill: colorTokens.colors.well-fill,
+  corner-radius: lengthTokens.lengths.row-radius,
+  children: count,
+
+  count = text {
+    fill: colorTokens.colors.primary,
+    contents: "2",
+    font-size: 12,
+    font-family: "SF Pro"
+  }
+}
+
+@variant
+export countChipSelected = frame : countChip {
+  left: 600px,
+  top: 200px,
+  fill[0].color: colorTokens.colors.accent,
+
+  count {
+    fill[0].color: colorTokens.colors.on-accent,
+    contents: "3",
+    font-style: "Semibold"
+  }
+}
+
+// Spacing picker, a segmented control
+export segmentedControl = frame {
+  left: 40px,
+  top: 420px,
+  width: 448px,
+  height: 24px,
+  layout: {align-items: .stretch},
+  fill: colorTokens.colors.well-fill,
+  corner-radius: lengthTokens.lengths.row-radius,
+  overflow: .visible,
+  padding: 2px,
+  children: [none, small, medium, large],
+
+  none = frame : segment {
+    left: 0px,
+    top: 0px,
+    width: 25%,
+
+    segmentLabel {
+      contents: "None"
+    }
+  }
+
+  small = frame : segment {
+    left: 0px,
+    top: 0px,
+    width: 25%,
+
+    segmentLabel {
+      contents: "Small"
+    }
+  }
+
+  medium = frame : segmentSelected {
+    left: 0px,
+    top: 0px,
+    width: 25%
+  }
+
+  large = frame : segment {
+    left: 0px,
+    top: 0px,
+    width: 25%,
+
+    segmentLabel {
+      contents: "Large"
+    }
+  }
+}
+
+export segment = frame {
+  left: 560px,
+  top: 420px,
+  width: 110px,
+  height: 20px,
+  layout: {justify-content: .center, align-items: .center},
+  corner-radius: 4px,
+  children: segmentLabel,
+
+  segmentLabel = text {
+    fill: colorTokens.colors.primary,
+    contents: "Small",
+    font-size: 12,
+    font-family: "SF Pro"
+  }
+}
+
+@variant
+export segmentSelected = frame : segment {
+  left: 710px,
+  top: 420px,
+  fill[0].color: colorTokens.colors.segment-selected,
+  shadow[0].drop-shadow.blur-radius: 2px,
+  shadow[0].drop-shadow.color: colorTokens.colors.shadow-near,
+  shadow[0].drop-shadow.offset: [0px, 1px],
+
+  segmentLabel {
+    contents: "Medium",
+    font-style: "Medium"
+  }
+}
+
+// One background. The selection ring sits 2px outside the swatch
+export backgroundSwatch = frame {
+  left: 40px,
+  top: 500px,
+  width: 28px,
+  height: 28px,
+  layout: {justify-content: .center, align-items: .center},
+  corner-radius: 100px,
+  children: swatch,
+
+  swatch = frame {
+    width: 24px,
+    height: 24px,
+    fill: rgb(10.98%, 10.98%, 11.76%),
+    border: colorTokens.colors.separator,
+    corner-radius: 100px
+  }
+}
+
+@variant
+export backgroundSwatchSelected = frame : backgroundSwatch {
+  left: 88px,
+  top: 500px,
+  border[0].color: colorTokens.colors.accent,
+  border[0].width: 2px,
+
+  swatch {
+    fill[0].linear-gradient.from: [50%, 0%],
+    fill[0].linear-gradient.stops[1].position: 100%,
+    fill[0].linear-gradient.stops[0].position: 0%,
+    fill[0].linear-gradient.to: [50%, 100%],
+    fill[0].linear-gradient.stops[1].color: rgb(12.16%, 43.53%, 54.51%),
+    fill[0].linear-gradient.stops[0].color: rgb(5.88%, 16.47%, 26.67%)
+  }
+}
+
+// Plain text button in the footer
+export footerButton = frame {
+  left: 160px,
+  top: 500px,
+  width: .auto,
+  height: lengthTokens.lengths.row-height,
+  layout: {align-items: .center},
+  corner-radius: lengthTokens.lengths.row-radius,
+  padding: [0px, lengthTokens.lengths.row-inset],
+  children: buttonLabel,
+
+  buttonLabel = text {
+    fill: colorTokens.colors.primary,
+    contents: "Quit",
+    font-size: 13,
+    font-family: "SF Pro"
+  }
+}
+
+// MARK: Arrange card
+// One suggestion: a thumbnail of the screen and its rank. Hovering shows outlines, resting on it tries it for real
+export arrangeCard = frame {
+  left: 40px,
+  top: 600px,
+  width: 144px,
+  height: .auto,
+  layout: {direction: .column, align-items: .center, item-gap: 6px},
+  fill: colorTokens.colors.well-fill,
+  corner-radius: lengthTokens.lengths.card-radius-small,
+  padding: [8px, 8px, 6px],
+  children: [thumbnail, rank],
+
+  // 128 x 72, a 16:9 screen
+  thumbnail = frame {
+    width: 128px,
+    height: 72px,
+    children: [mainTile, topTile, bottomTile],
+
+    mainTile = frame : thumbTile {
+      left: 1.5px,
+      top: 1.9px,
+      width: 69px,
+      height: 68.6px,
+
+      thumbIcon {
+        left: 22.5px,
+        top: 22.3px
+      }
+    }
+
+    topTile = frame : thumbTile {
+      left: 73.5px,
+      top: 1.9px,
+      width: 53px,
+      height: 33px,
+      overrides: [insert(slackIcon, after = .nil), remove(thumbTile.thumbIcon)],
+
+      slackIcon = frame : appIconSlack {
+        left: 14.5px,
+        top: 4.5px
+      }
+    }
+
+    bottomTile = frame : thumbTile {
+      left: 73.5px,
+      top: 37.5px,
+      width: 53px,
+      height: 33px,
+      overrides: [
+        insert(terminalIcon, after = .nil),
+        remove(thumbTile.thumbIcon)
+      ],
+
+      // Ghostty, with Messages stacked behind it: the window that didn't get a tile of its own
+      terminalIcon = frame : stackIcons {
+        left: 12px,
+        top: 2px
+      }
+    }
+  }
+
+  rank = text {
+    fill: colorTokens.colors.secondary,
+    contents: "Best fit",
+    font-size: 11,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+}
+
+// Hovered, or the one on screen right now
+@variant
+export arrangeCardTried = frame : arrangeCard {
+  left: 216px,
+  top: 600px,
+  fill[0].color: colorTokens.colors.row-hover,
+
+  rank {
+    fill[0].color: colorTokens.colors.accent
+  }
+
+  thumbnail {
+    bottomTile {
+      border[0].color: colorTokens.colors.accent,
+      fill[0].color: colorTokens.colors.tile-tried-fill
+    }
+
+    topTile {
+      border[0].color: colorTokens.colors.accent,
+      fill[0].color: colorTokens.colors.tile-tried-fill
+    }
+
+    mainTile {
+      border[0].color: colorTokens.colors.accent,
+      fill[0].color: colorTokens.colors.tile-tried-fill
+    }
+  }
+}
+
+// The top window's icon with the windows stacked behind it fanned out up and to the right, dimmer the further back
+export stackIcons = frame {
+  left: 480px,
+  top: 600px,
+  width: 29px,
+  height: 29px,
+  children: [behindIcon, topIcon],
+
+  behindIcon = frame : appIconMessages {
+    left: 7px,
+    top: 0px,
+    width: 22px,
+    height: 22px,
+    opacity: 0.75
+  }
+
+  topIcon = frame : appIconTerminal {
+    left: 0px,
+    top: 7px,
+    width: 22px,
+    height: 22px
+  }
+}
+
+export thumbTile = frame {
+  left: 400px,
+  top: 600px,
+  width: 60px,
+  height: 40px,
+  fill: colorTokens.colors.tile-fill,
+  border: colorTokens.colors.tile-border,
+  corner-radius: lengthTokens.lengths.thumb-tile-radius,
+  children: thumbIcon,
+
+  thumbIcon = frame : appIcon {
+    left: 18px,
+    top: 8px
+  }
+}
+
+// MARK: Layout map
+// A tile of the layout map: app icon and name, a count for stacks
+export mapTile = frame {
+  left: 40px,
+  top: 760px,
+  width: 218px,
+  height: 120px,
+  layout: {
+    direction: .column,
+    justify-content: .center,
+    align-items: .center,
+    item-gap: 4px
+  },
+  fill: colorTokens.colors.tile-fill,
+  border: colorTokens.colors.tile-border,
+  corner-radius: lengthTokens.lengths.map-tile-radius,
+  children: [tileIcon, tileName],
+
+  tileIcon = frame : appIconSlack {
+    width: 32px,
+    height: 32px
+  }
+
+  tileName = text {
+    fill: colorTokens.colors.secondary,
+    contents: "Slack",
+    font-size: 11,
+    font-family: "SF Pro"
+  }
+}
+
+// A stack: a tab bar along the top, like the one above the real stack. Click a tab to bring its window forward,
+// drag it out
+@variant
+export mapTileStack = frame : mapTile {
+  left: 290px,
+  top: 760px,
+  padding-top: 27px,
+  overrides: [insert(stackBar, after = mapTile.tileName)],
+
+  stackBar = frame : mapTabBar {
+    left: 3px,
+    top: 3px,
+    ignore-stack: .true
+  }
+}
+
+// One window of a stack in the map
+export mapTab = frame {
+  left: 1260px,
+  top: 760px,
+  width: 100%,
+  height: 18px,
+  layout: {align-items: .center, item-gap: 4px},
+  corner-radius: 100px,
+  padding: [0px, 6px],
+  children: [mapTabIcon, mapTabName],
+
+  mapTabIcon = frame : appIconMessages {
+    width: 12px,
+    height: 12px,
+    corner-radius: 3px
+  }
+
+  mapTabName = text {
+    fill: colorTokens.colors.secondary,
+    contents: "Messages",
+    font-size: 10,
+    font-family: "SF Pro"
+  }
+}
+
+@variant
+export mapTabFront = frame : mapTab {
+  left: 1400px,
+  top: 760px,
+  fill[0].color: colorTokens.colors.row-hover,
+  overrides: [insert(frontTabIcon, after = .nil), remove(mapTab.mapTabIcon)],
+
+  mapTabName {
+    fill[0].color: colorTokens.colors.primary,
+    contents: "Slack",
+    font-style: "Medium"
+  }
+
+  frontTabIcon = frame : appIconSlack {
+    width: 12px,
+    height: 12px,
+    corner-radius: 3px
+  }
+}
+
+// The stack's tabs, in the stack's order
+export mapTabBar = frame {
+  left: 1260px,
+  top: 820px,
+  width: 211px,
+  height: 22px,
+  layout: {align-items: .center, item-gap: 2px},
+  fill: colorTokens.colors.window-chrome,
+  border: colorTokens.colors.card-border,
+  corner-radius: 100px,
+  padding: 2px,
+  children: [slackTab, messagesTab],
+
+  slackTab = frame : mapTabFront {
+    left: 0px,
+    top: 0px
+  }
+
+  messagesTab = frame : mapTab {
+    left: 0px,
+    top: 0px
+  }
+}
+
+// The empty slot of the tile being dragged
+@variant
+export mapTileOrigin = frame : mapTile {
+  left: 540px,
+  top: 760px,
+  border[0].color: colorTokens.colors.stack-back-border,
+  border[0].dash: [4px, 3px],
+  fill[0].color: colorTokens.colors.stack-back-fill,
+
+  tileName {
+    display: .none
+  }
+
+  tileIcon {
+    display: .none
+  }
+}
+
+// The copy that follows the cursor. See-through, so the layout under it stays readable
+@variant
+export mapTileLifted = frame : mapTile {
+  left: 790px,
+  top: 760px,
+  opacity: 0.75,
+  border[0].color: colorTokens.colors.accent,
+  border[0].width: 1.5px,
+  fill[0].color: colorTokens.colors.lifted-fill
+}
+
+// Where the dragged tile goes: half of a tile for a split, the whole tile for a swap
+export dropHighlight = frame {
+  left: 1040px,
+  top: 760px,
+  width: 109px,
+  height: 120px,
+  fill: colorTokens.colors.drop-fill,
+  border: {color: colorTokens.colors.accent, width: 1.5px},
+  corner-radius: lengthTokens.lengths.map-tile-radius
+}
+
+// Shown on a gap while it's hovered or dragged
+export dividerLine = frame {
+  left: 1200px,
+  top: 760px,
+  width: 3px,
+  height: 112px,
+  fill: colorTokens.colors.accent,
+  corner-radius: 100px
+}
+
+// The focused workspace on a 3840 x 2160 screen, scaled to 448 wide: Dia on the left, Slack (a stack of 2) and
+// Ghostty on the right
+export layoutMap = frame {
+  left: 40px,
+  top: 920px,
+  width: 448px,
+  height: 252px,
+  fill: colorTokens.colors.well-fill,
+  corner-radius: lengthTokens.lengths.card-radius-small,
+  children: [diaTile, slackTile, terminalTile],
+
+  diaTile = frame : mapTile {
+    left: 2.9px,
+    top: 5.8px,
+    width: 222px,
+    height: 243.3px,
+    overrides: [insert(diaIcon, after = .nil), remove(mapTile.tileIcon)],
+
+    tileName {
+      contents: "Dia"
+    }
+
+    diaIcon = frame : appIcon {
+      width: 32px,
+      height: 32px
+    }
+  }
+
+  slackTile = frame : mapTileStack {
+    left: 228px,
+    top: 5.8px,
+    width: 217px,
+    height: 120px
+  }
+
+  terminalTile = frame : mapTile {
+    left: 228px,
+    top: 129px,
+    width: 217px,
+    overrides: [insert(terminalIcon, after = .nil), remove(mapTile.tileIcon)],
+
+    tileName {
+      contents: "Ghostty"
+    }
+
+    terminalIcon = frame : appIconTerminal {
+      width: 32px,
+      height: 32px
+    }
+  }
+}
+
+// MARK: Workspace strip
+// A small map of one workspace with its name under it. Click to switch, drop a window on it to move the window there
+export workspaceMini = frame {
+  left: 40px,
+  top: 1240px,
+  width: 106px,
+  height: .auto,
+  layout: {direction: .column, align-items: .center, item-gap: 4px},
+  children: [miniMap, miniName],
+
+  // The shape of the workspace's screen
+  miniMap = frame {
+    width: 106px,
+    height: 60px,
+    fill: colorTokens.colors.well-fill,
+    border: colorTokens.colors.separator,
+    corner-radius: lengthTokens.lengths.row-radius,
+    children: [miniLeftTile, miniRightTile],
+
+    miniLeftTile = frame : thumbTile {
+      left: 3px,
+      top: 3px,
+      width: 49px,
+      height: 54px,
+      overrides: [insert(miniDia, after = .nil), remove(thumbTile.thumbIcon)],
+
+      miniDia = frame : appIcon {
+        left: 16.5px,
+        top: 19px,
+        width: 16px,
+        height: 16px,
+        corner-radius: 4px
+      }
+    }
+
+    miniRightTile = frame : thumbTile {
+      left: 54px,
+      top: 3px,
+      width: 49px,
+      height: 54px,
+      overrides: [
+        insert(miniMessages, after = .nil),
+        remove(thumbTile.thumbIcon)
+      ],
+
+      miniMessages = frame : appIconMessages {
+        left: 16.5px,
+        top: 19px,
+        width: 16px,
+        height: 16px,
+        corner-radius: 4px
+      }
+    }
+  }
+
+  miniName = text {
+    fill: colorTokens.colors.secondary,
+    contents: "2",
+    font-size: 11,
+    font-family: "SF Pro"
+  }
+}
+
+// The workspace on screen
+@variant
+export workspaceMiniFocused = frame : workspaceMini {
+  left: 200px,
+  top: 1240px,
+
+  miniMap {
+    border[0].color: colorTokens.colors.accent,
+    border[0].width: 1.5px
+  }
+
+  miniName {
+    fill[0].color: colorTokens.colors.accent,
+    contents: "1",
+    font-style: "Semibold"
+  }
+}
+
+// A window is dragged over it
+@variant
+export workspaceMiniTarget = frame : workspaceMini {
+  left: 360px,
+  top: 1240px,
+
+  miniMap {
+    fill[0].color: colorTokens.colors.drop-fill,
+    border[0].color: colorTokens.colors.accent,
+    border[0].width: 1.5px
+  }
+
+  miniName {
+    fill[0].color: colorTokens.colors.accent,
+    font-style: "Semibold"
+  }
+}
+
+// Ready to take a window
+@variant
+export workspaceMiniEmpty = frame : workspaceMini {
+  left: 520px,
+  top: 1240px,
+
+  miniName {
+    contents: "3"
+  }
+
+  miniMap {
+    overrides: [
+      insert(emptyLabel, after = .nil),
+      remove(workspaceMini.miniMap.miniRightTile),
+      remove(workspaceMini.miniMap.miniLeftTile)
+    ],
+    border[0].color: colorTokens.colors.tile-border,
+    fill[0].color: colorTokens.colors.stack-back-fill,
+    border[0].dash: [4px, 3px],
+    layout.justify-content: .center,
+    layout.align-items: .center
+  }
+
+  emptyLabel = text {
+    fill: colorTokens.colors.tertiary,
+    contents: "Empty",
+    font-size: 11,
+    font-family: "SF Pro"
+  }
+}
+
+// Every workspace, four to a row, above the layout map
+export workspaceStrip = frame {
+  left: 40px,
+  top: 1380px,
+  width: 448px,
+  height: .auto,
+  layout: {item-gap: 8px},
+  children: [stripFirst, stripSecond, stripThird],
+
+  stripFirst = frame : workspaceMiniFocused {
+    left: 0px,
+    top: 0px
+  }
+
+  stripSecond = frame : workspaceMini {
+    left: 0px,
+    top: 0px
+  }
+
+  stripThird = frame : workspaceMiniEmpty {
+    left: 0px,
+    top: 0px
+  }
+}
+
+// MARK: Floating apps
+// An app whose windows aren't tiled. The cross tiles it again
+export floatingAppRow = frame {
+  left: 32px,
+  top: 1520px,
+  width: 464px,
+  height: lengthTokens.lengths.row-height,
+  layout: {align-items: .center, item-gap: 8px},
+  corner-radius: lengthTokens.lengths.row-radius,
+  padding: [0px, lengthTokens.lengths.row-inset],
+  children: [floatingIcon, floatingName, removeApp],
+
+  floatingIcon = frame : appIcon {
+    width: 16px,
+    height: 16px,
+    corner-radius: 4px
+  }
+
+  floatingName = text {
+    width: 100%,
+    fill: colorTokens.colors.primary,
+    contents: "Finder",
+    font-size: 13,
+    font-family: "SF Pro"
+  }
+
+  removeApp = frame {
+    width: 20px,
+    height: 20px,
+    opacity: 0.5,
+    layout: {justify-content: .center, align-items: .center},
+    children: removeGlyph,
+
+    removeGlyph = text {
+      fill: colorTokens.colors.secondary,
+      contents: "×",
+      font-size: 15,
+      font-family: "SF Pro"
+    }
+  }
+}
+
+@variant
+export floatingAppRowHovered = frame : floatingAppRow {
+  left: 32px,
+  top: 1568px,
+  fill[0].color: colorTokens.colors.row-hover,
+
+  removeApp {
+    opacity: 1
+  }
+}
+
+// Opens a menu of running apps, then "Choose an App…"
+export addAppButton = frame {
+  left: 560px,
+  top: 1520px,
+  width: .auto,
+  height: lengthTokens.lengths.row-height,
+  layout: {align-items: .center, item-gap: 6px},
+  corner-radius: lengthTokens.lengths.row-radius,
+  padding: [0px, lengthTokens.lengths.row-inset],
+  children: [addGlyph, addLabel],
+
+  addGlyph = text {
+    fill: colorTokens.colors.accent,
+    contents: "+",
+    font-size: 14,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+
+  addLabel = text {
+    fill: colorTokens.colors.accent,
+    contents: "Add app",
+    font-size: 13,
+    font-family: "SF Pro"
+  }
+}
+
+// MARK: Stack tab bar
+// Mirrors Sources/AppBundle/ui/StackTabs.swift. One tab per window of a stack, in the stack's order
+export stackTab = frame {
+  left: 40px,
+  top: 1660px,
+  width: 180px,
+  height: 22px,
+  layout: {align-items: .center, item-gap: 6px},
+  corner-radius: 11px,
+  padding: [0px, 8px],
+  children: [tabIcon, tabTitle],
+
+  tabIcon = frame : appIconMessages {
+    width: 14px,
+    height: 14px,
+    corner-radius: 3.5px,
+    overflow: .visible
+  }
+
+  tabTitle = text {
+    width: 100%,
+    fill: colorTokens.colors.secondary,
+    contents: "Messages",
+    font-size: 12,
+    font-family: "SF Pro"
+  }
+}
+
+// The window in front
+@variant
+export stackTabFront = frame : stackTab {
+  left: 280px,
+  top: 1660px,
+  fill[0].color: colorTokens.colors.row-hover,
+  overrides: [insert(frontIcon, after = .nil), remove(stackTab.tabIcon)],
+
+  tabTitle {
+    fill[0].color: colorTokens.colors.primary,
+    contents: "Dia: Kytöniitty listing",
+    font-style: "Medium"
+  }
+
+  frontIcon = frame : appIcon {
+    width: 14px,
+    height: 14px,
+    corner-radius: 3.5px
+  }
+}
+
+// Its app has a Dock badge, like an unread count. Never on the front tab
+@variant
+export stackTabBadge = frame : stackTab {
+  left: 520px,
+  top: 1660px,
+
+  tabIcon {
+    overrides: [insert(badgeDot, after = .nil)]
+  }
+
+  badgeDot = frame {
+    left: 9px,
+    top: -3px,
+    width: 8px,
+    height: 8px,
+    fill: rgb(100%, 23.14%, 18.82%),
+    border: colorTokens.colors.window-chrome,
+    corner-radius: 100px
+  }
+}
+
+// "+" at the end of the tabs: opens the Bring here menu
+export addWindowButton = frame {
+  left: 760px,
+  top: 1660px,
+  width: 26px,
+  height: 22px,
+  layout: {justify-content: .center, align-items: .center},
+  corner-radius: 11px,
+  children: plusGlyph,
+
+  plusGlyph = text {
+    fill: colorTokens.colors.secondary,
+    contents: "+",
+    font-size: 14,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+}
+
+// Sits 4px above the stack, as wide as it. Corners follow the windows' radius, clamped to a capsule
+export stackTabBar = frame {
+  left: 40px,
+  top: 1740px,
+  width: 640px,
+  height: 28px,
+  layout: {align-items: .center, item-gap: 2px},
+  fill: colorTokens.colors.window-chrome,
+  border: colorTokens.colors.card-border,
+  shadow: {
+    drop-shadow: {
+      color: colorTokens.colors.window-shadow,
+      offset: point(0px, 4px),
+      blur-radius: 12px
+    }
+  },
+  corner-radius: 14px,
+  padding: 3px,
+  children: [frontTab, messagesTab, mailTab, addTab],
+
+  frontTab = frame : stackTabFront {
+    left: 0px,
+    top: 0px
+  }
+
+  messagesTab = frame : stackTab {
+    left: 0px,
+    top: 0px
+  }
+
+  mailTab = frame : stackTabBadge {
+    left: 0px,
+    top: 0px,
+
+    tabTitle {
+      contents: "Mail: Inbox"
+    }
+  }
+
+  addTab = frame : addWindowButton {
+    left: 0px,
+    top: 0px
+  }
+}
+
+// MARK: Bring here menu
+// A native menu: every window outside the stack, by where it is. Picking one moves it into the stack, on top
+export menuItem = frame {
+  left: 40px,
+  top: 1840px,
+  width: 290px,
+  height: 22px,
+  layout: {align-items: .center, item-gap: 6px},
+  corner-radius: 4px,
+  padding: [0px, 10px],
+  children: [itemIcon, itemTitle],
+
+  itemIcon = frame : appIconTerminal {
+    width: 16px,
+    height: 16px,
+    corner-radius: 4px
+  }
+
+  itemTitle = text {
+    fill: colorTokens.colors.primary,
+    contents: "Ghostty: ~/orca",
+    font-size: 13,
+    font-family: "SF Pro"
+  }
+}
+
+@variant
+export menuItemHighlighted = frame : menuItem {
+  left: 380px,
+  top: 1840px,
+  fill[0].color: colorTokens.colors.accent,
+
+  itemTitle {
+    fill[0].color: colorTokens.colors.on-accent
+  }
+}
+
+export menuSectionHeader = text {
+  left: 40px,
+  top: 1900px,
+  fill: colorTokens.colors.secondary,
+  contents: "This workspace",
+  font-size: 11,
+  font-family: "SF Pro",
+  font-style: "Semibold"
+}
+
+export bringHereMenu = frame {
+  left: 40px,
+  top: 1960px,
+  width: 300px,
+  height: .auto,
+  layout: {direction: .column, item-gap: 2px},
+  fill: colorTokens.colors.material,
+  border: colorTokens.colors.card-border,
+  shadow: {
+    drop-shadow: {
+      color: colorTokens.colors.shadow-far,
+      offset: point(0px, 8px),
+      blur-radius: 24px
+    }
+  },
+  filter: {type: .background-blur, radius: 30px},
+  corner-radius: 8px,
+  corner-smoothing: 0.6,
+  padding: 5px,
+  children: [
+    menuTitle,
+    firstSeparator,
+    hereHeader,
+    ghosttyItem,
+    secondSeparator,
+    otherHeader,
+    slackItem,
+    thirdSeparator,
+    awayHeader,
+    notesItem
+  ],
+
+  menuTitle = frame {
+    width: 100%,
+    height: .auto,
+    layout: {align-items: .center},
+    padding: [3px, 10px],
+    children: menuTitleText,
+
+    menuTitleText = text {
+      fill: colorTokens.colors.secondary,
+      contents: "Bring here",
+      font-size: 13,
+      font-family: "SF Pro",
+      font-style: "Bold"
+    }
+  }
+
+  firstSeparator = frame {
+    width: 100%,
+    height: 1px,
+    fill: colorTokens.colors.separator
+  }
+
+  hereHeader = frame {
+    width: 100%,
+    height: .auto,
+    layout: {align-items: .center},
+    padding: [3px, 10px],
+    children: hereTitle,
+
+    hereTitle = text : menuSectionHeader {
+      left: 0px,
+      top: 0px
+    }
+  }
+
+  ghosttyItem = frame : menuItemHighlighted {
+    left: 0px,
+    top: 0px
+  }
+
+  secondSeparator = frame {
+    width: 100%,
+    height: 1px,
+    fill: colorTokens.colors.separator
+  }
+
+  otherHeader = frame {
+    width: 100%,
+    height: .auto,
+    layout: {align-items: .center},
+    padding: [3px, 10px],
+    children: otherTitle,
+
+    otherTitle = text : menuSectionHeader {
+      left: 0px,
+      top: 0px,
+      contents: "Workspace 2"
+    }
+  }
+
+  slackItem = frame : menuItem {
+    left: 0px,
+    top: 0px,
+    overrides: [insert(slackMenuIcon, after = .nil), remove(menuItem.itemIcon)],
+
+    itemTitle {
+      contents: "Slack: #design"
+    }
+
+    slackMenuIcon = frame : appIconSlack {
+      width: 16px,
+      height: 16px,
+      corner-radius: 4px
+    }
+  }
+
+  thirdSeparator = frame {
+    width: 100%,
+    height: 1px,
+    fill: colorTokens.colors.separator
+  }
+
+  awayHeader = frame {
+    width: 100%,
+    height: .auto,
+    layout: {align-items: .center},
+    padding: [3px, 10px],
+    children: awayTitle,
+
+    awayTitle = text : menuSectionHeader {
+      left: 0px,
+      top: 0px,
+      contents: "Minimized and hidden"
+    }
+  }
+
+  notesItem = frame : menuItem {
+    left: 0px,
+    top: 0px,
+    overrides: [insert(notesIcon, after = .nil), remove(menuItem.itemIcon)],
+
+    itemTitle {
+      contents: "Notes: Groceries"
+    }
+
+    notesIcon = frame : appIcon {
+      width: 16px,
+      height: 16px,
+      corner-radius: 4px
+    }
+  }
+}
+
+// MARK: Undo note
+// Says what nanopress did to the layout on its own, at the bottom of the tile it's about. Pauses while hovered
+export layoutToast = frame {
+  left: 400px,
+  top: 1960px,
+  width: .auto,
+  height: 34px,
+  layout: {align-items: .center, item-gap: 12px},
+  fill: colorTokens.colors.material,
+  border: colorTokens.colors.card-border,
+  shadow: {
+    drop-shadow: {
+      color: colorTokens.colors.shadow-far,
+      offset: point(0px, 4px),
+      blur-radius: 10px
+    }
+  },
+  filter: {type: .background-blur, radius: 30px},
+  corner-radius: 100px,
+  padding: [0px, 14px],
+  children: [toastMessage, toastAction],
+
+  toastMessage = text {
+    fill: colorTokens.colors.primary,
+    contents: "Stacked Mail behind Dia",
+    font-size: 13,
+    font-family: "SF Pro"
+  }
+
+  toastAction = text {
+    fill: colorTokens.colors.accent,
+    contents: "Undo",
+    font-size: 13,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+}
+
+// MARK: Dropdowns
+// A pop-up button, for Spacing and Background
+export popUpButton = frame {
+  left: 40px,
+  top: 2240px,
+  width: 120px,
+  height: 22px,
+  layout: {justify-content: .space-between, align-items: .center},
+  fill: colorTokens.colors.segment-selected,
+  border: colorTokens.colors.card-border,
+  shadow: {
+    drop-shadow: {
+      color: colorTokens.colors.shadow-near,
+      offset: point(0px, 1px),
+      blur-radius: 1px
+    }
+  },
+  corner-radius: 5px,
+  padding: [0px, 6px, 0px, 8px],
+  children: [popUpLabel, popUpChevrons],
+
+  popUpLabel = text {
+    fill: colorTokens.colors.primary,
+    contents: "Auto",
+    font-size: 12,
+    font-family: "SF Pro"
+  }
+
+  popUpChevrons = text {
+    fill: colorTokens.colors.secondary,
+    contents: "⌄",
+    font-size: 11,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+}
+
+// MARK: Preferences menu
+// The footer's Preferences menu with Floating Apps open: apps whose windows aren't tiled are checked
+export preferencesMenu = frame {
+  left: 40px,
+  top: 2320px,
+  width: 560px,
+  height: .auto,
+  layout: {direction: .row},
+  overflow: .visible,
+  children: [mainMenu, floatingAppsMenu],
+
+  mainMenu = frame {
+    width: 260px,
+    height: .auto,
+    layout: {direction: .column, item-gap: 2px},
+    fill: colorTokens.colors.material,
+    border: colorTokens.colors.card-border,
+    shadow: {
+      drop-shadow: {
+        color: colorTokens.colors.shadow-far,
+        offset: point(0px, 8px),
+        blur-radius: 24px
+      }
+    },
+    filter: {type: .background-blur, radius: 30px},
+    corner-radius: 8px,
+    padding: 5px,
+    children: [
+      floatingAppsItem,
+      menuSeparatorOne,
+      openConfigItem,
+      reloadConfigItem,
+      menuSeparatorTwo,
+      copyVersionItem
+    ],
+
+    floatingAppsItem = frame : menuItemHighlighted {
+      left: 0px,
+      top: 0px,
+      width: 100%,
+      layout.justify-content: .space-between,
+      overrides: [
+        insert(submenuArrow, after = menuItem.itemTitle),
+        remove(menuItem.itemIcon)
+      ],
+
+      itemTitle {
+        contents: "Floating Apps"
+      }
+
+      submenuArrow = text {
+        fill: colorTokens.colors.on-accent,
+        contents: "›",
+        font-size: 14,
+        font-family: "SF Pro",
+        font-style: "Semibold"
+      }
+    }
+
+    menuSeparatorOne = frame {
+      width: 100%,
+      height: 1px,
+      fill: colorTokens.colors.separator
+    }
+
+    openConfigItem = frame : menuItem {
+      left: 0px,
+      top: 0px,
+      width: 100%,
+      overrides: [remove(menuItem.itemIcon)],
+
+      itemTitle {
+        contents: "Open config in 'TextEdit'"
+      }
+    }
+
+    reloadConfigItem = frame : menuItem {
+      left: 0px,
+      top: 0px,
+      width: 100%,
+      overrides: [remove(menuItem.itemIcon)],
+
+      itemTitle {
+        contents: "Reload config"
+      }
+    }
+
+    menuSeparatorTwo = frame {
+      width: 100%,
+      height: 1px,
+      fill: colorTokens.colors.separator
+    }
+
+    copyVersionItem = frame : menuItem {
+      left: 0px,
+      top: 0px,
+      width: 100%,
+      overrides: [remove(menuItem.itemIcon)],
+
+      itemTitle {
+        contents: "Copy version"
+      }
+    }
+  }
+
+  floatingAppsMenu = frame {
+    width: 280px,
+    height: .auto,
+    layout: {direction: .column, item-gap: 2px},
+    fill: colorTokens.colors.material,
+    border: colorTokens.colors.card-border,
+    shadow: {
+      drop-shadow: {
+        color: colorTokens.colors.shadow-far,
+        offset: point(0px, 8px),
+        blur-radius: 24px
+      }
+    },
+    filter: {type: .background-blur, radius: 30px},
+    corner-radius: 8px,
+    padding: 5px,
+    children: [
+      floatingHint,
+      finderItem,
+      slackItem,
+      ghosttyItem,
+      menuSeparatorThree,
+      chooseAppItem
+    ],
+
+    floatingHint = frame {
+      width: 100%,
+      height: 22px,
+      layout: {align-items: .center},
+      padding: [0px, 10px],
+      children: floatingHintText,
+
+      floatingHintText = text {
+        fill: colorTokens.colors.secondary,
+        contents: "Windows of checked apps aren't tiled",
+        font-size: 13,
+        font-family: "SF Pro"
+      }
+    }
+
+    finderItem = frame : menuItem {
+      left: 0px,
+      top: 0px,
+      width: 100%,
+      overrides: [insert(finderCheck, after = .nil)],
+
+      itemIcon {
+        fill[0].linear-gradient.stops[0].color: rgb(36.08%, 61.18%, 100%),
+        fill[0].linear-gradient.stops[1].color: rgb(14.9%, 38.82%, 92.16%)
+      }
+
+      itemTitle {
+        contents: "Finder"
+      }
+
+      finderCheck = text {
+        width: 12px,
+        fill: colorTokens.colors.primary,
+        contents: "✓",
+        font-size: 12,
+        font-family: "SF Pro",
+        font-style: "Semibold"
+      }
+    }
+
+    slackItem = frame : menuItem {
+      left: 0px,
+      top: 0px,
+      width: 100%,
+      padding-left: 28px,
+      overrides: [
+        insert(slackItemIcon, after = .nil),
+        remove(menuItem.itemIcon)
+      ],
+
+      itemTitle {
+        contents: "Slack"
+      }
+
+      slackItemIcon = frame : appIconSlack {
+        width: 16px,
+        height: 16px,
+        corner-radius: 4px
+      }
+    }
+
+    ghosttyItem = frame : menuItem {
+      left: 0px,
+      top: 0px,
+      width: 100%,
+      padding-left: 28px,
+
+      itemTitle {
+        contents: "Ghostty"
+      }
+    }
+
+    menuSeparatorThree = frame {
+      width: 100%,
+      height: 1px,
+      fill: colorTokens.colors.separator
+    }
+
+    chooseAppItem = frame : menuItem {
+      left: 0px,
+      top: 0px,
+      width: 100%,
+      padding-left: 28px,
+      overrides: [remove(menuItem.itemIcon)],
+
+      itemTitle {
+        contents: "Choose an App…"
+      }
+    }
+  }
+}

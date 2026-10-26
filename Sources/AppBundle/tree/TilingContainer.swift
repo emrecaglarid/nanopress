@@ -5,6 +5,8 @@ final class TilingContainer: TreeNode, NonLeafTreeNodeObject { // todo consider 
     fileprivate var _orientation: Orientation
     var orientation: Orientation { _orientation }
     var layout: Layout
+    /// A stack that took a window because the screen was full. Its windows get a tile back once there's room
+    var isOverflowStack = false
 
     @MainActor
     init(parent: NonLeafTreeNodeObject, adaptiveWeight: CGFloat, _ orientation: Orientation, _ layout: Layout, index: Int) {

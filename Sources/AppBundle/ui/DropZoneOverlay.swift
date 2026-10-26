@@ -73,17 +73,27 @@ final class DropZoneOverlay {
     private init() {}
 
     func show(_ preview: DropPreview) {
+        present(on: preview.monitorRect)
+        model.preview = preview
+    }
+
+    /// Previews an Arrange option from the menu: every tile where it ends up
+    func showArrangement(_ tiles: [ArrangedTile], monitorRect: CGRect) {
+        present(on: monitorRect)
+        model.arrangement = ArrangementPreview(monitorRect: monitorRect, tiles: tiles)
+    }
+
+    private func present(on monitor: CGRect) {
         hideTask?.cancel()
-        let monitor = preview.monitorRect
         let frame = NSRect(x: monitor.minX, y: mainMonitorInfo.height - monitor.maxY, width: monitor.width, height: monitor.height)
         if panel.frame != frame { panel.setFrame(frame, display: false) }
-        model.preview = preview
         if !panel.isVisible { panel.orderFrontRegardless() }
     }
 
     func hide() {
-        if model.preview == nil { return }
+        if model.preview == nil && model.arrangement == nil { return }
         model.preview = nil
+        model.arrangement = nil
         hideTask = Task.startUnstructured { @MainActor [panel] in
             try await Task.sleep(for: .milliseconds(200)) // Let the fade out finish
             panel.orderOut(nil)
@@ -93,6 +103,12 @@ final class DropZoneOverlay {
 
 private final class DropOverlayModel: ObservableObject {
     @Published var preview: DropPreview? = nil
+    @Published var arrangement: ArrangementPreview? = nil
+}
+
+private struct ArrangementPreview: Equatable {
+    let monitorRect: CGRect
+    let tiles: [ArrangedTile]
 }
 
 private let regionInset: CGFloat = 4
@@ -110,9 +126,14 @@ private struct DropOverlayView: View {
                 DropPreviewView(preview: preview)
                     .transition(.opacity)
             }
+            if let arrangement = model.arrangement {
+                ArrangementPreviewView(arrangement: arrangement)
+                    .transition(.opacity)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .animation(reduceMotion ? nil : .timingCurve(0.2, 0, 0, 1, duration: 0.15), value: model.preview)
+        .animation(reduceMotion ? nil : .timingCurve(0.2, 0, 0, 1, duration: 0.15), value: model.arrangement)
         .accessibilityHidden(true)
     }
 }
@@ -152,6 +173,31 @@ private struct DropPreviewView: View {
 
     private func local(_ rect: CGRect) -> CGRect {
         rect.offsetBy(dx: -preview.monitorRect.minX, dy: -preview.monitorRect.minY)
+    }
+}
+
+/// Every tile in the landing style, with the app name as prominent as the hover card's title
+private struct ArrangementPreviewView: View {
+    let arrangement: ArrangementPreview
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(arrangement.tiles) { tile in
+                LandingRegion(isBackCard: false)
+                    .overlay {
+                        Text(tile.stackCount > 1 ? "\(tile.name) +\(tile.stackCount - 1)" : tile.name)
+                            .font(.system(size: 16, weight: .semibold))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 11)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                            .fixedSize()
+                    }
+                    .placed(in: tile.rect
+                        .offsetBy(dx: -arrangement.monitorRect.minX, dy: -arrangement.monitorRect.minY)
+                        .insetBy(dx: regionInset, dy: regionInset))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 

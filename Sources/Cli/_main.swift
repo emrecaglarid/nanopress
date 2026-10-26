@@ -54,6 +54,10 @@ struct Main {
             exit(EXIT_CODE_ZERO)
         }
 
+        if args.first == "mcp" {
+            await runMcpServer()
+        }
+
         let parsedArgs: any CmdArgs
         switch parseCmdArgs(args) {
             // Optimizations

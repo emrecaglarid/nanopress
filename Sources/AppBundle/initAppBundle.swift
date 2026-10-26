@@ -19,6 +19,7 @@ import Foundation
 
         startUnixSocketServer()
         GlobalObserver.initObserver()
+        BackdropPanels.shared.refresh()
         Workspace.garbageCollectUnusedWorkspaces() // init workspaces
         _ = Workspace.all.first?.focusWorkspace()
         await runHeavyCompleteRefreshSession(
@@ -29,6 +30,7 @@ import Foundation
             layoutWorkspaces: false,
         )
         try await runLightSession(.startup, .forceRun) {
+            restoreSavedLayout()
             _ = await config.afterStartupCommand.run(.defaultEnv, .emptyStdin)
         }
     }

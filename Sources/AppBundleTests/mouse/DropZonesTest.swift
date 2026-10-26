@@ -207,6 +207,78 @@ final class DropZonesTest: XCTestCase {
         }
         XCTAssertGreaterThan(checkedDrops, 300)
     }
+
+    func testResizingOverATileStacksIt() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        let column = TilingContainer(parent: root, adaptiveWeight: 500, .v, .tiles, index: INDEX_BIND_LAST)
+        let w0 = TestWindow.new(id: 0, parent: column, adaptiveWeight: 950)
+        TestWindow.new(id: 1, parent: column, adaptiveWeight: 50) // Squeezed by w0
+        TestWindow.new(id: 2, parent: root, adaptiveWeight: 500)
+
+        let sim = SimNode.snapshot(workspace)
+        assertEquals(stackSqueezedTiles(resizing: 0, in: sim), StackChange(front: 0, behind: [1]))
+        sim.materialize(into: workspace, windows: [0: w0, 1: Window.get(byId: 1)!, 2: Window.get(byId: 2)!])
+        // Tests don't flatten the column that's left with one child
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([.v_tiles([.h_accordion([.window(0), .window(1)])]), .window(2)]))
+        assertEquals(w0.parent?.mostRecentChild, w0)
+    }
+
+    func testResizingWithRoomLeftStacksNothing() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        TestWindow.new(id: 0, parent: root, adaptiveWeight: 700)
+        TestWindow.new(id: 1, parent: root, adaptiveWeight: 300)
+
+        assertEquals(stackSqueezedTiles(resizing: 0, in: SimNode.snapshot(workspace)), nil)
+    }
+
+    func testShrinkingAWindowAwayStacksItBehindTheNeighbour() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        TestWindow.new(id: 0, parent: root, adaptiveWeight: 60) // Shrunk away
+        TestWindow.new(id: 1, parent: root, adaptiveWeight: 940)
+        TestWindow.new(id: 2, parent: root, adaptiveWeight: 500)
+
+        let sim = SimNode.snapshot(workspace)
+        assertEquals(stackSqueezedTiles(resizing: 0, in: sim), StackChange(front: 1, behind: [0]))
+        assertEquals(sim.rootContainer.children[0].allWindows.compactMap(\.windowId), [1, 0])
+        assertEquals(sim.rootContainer.children[0].mostRecentWindowRecursive?.windowId, 1)
+    }
+
+    func testShrinkingAStackedWindowTakesItOut() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        TestWindow.new(id: 0, parent: root)
+        let stack = TilingContainer(parent: root, adaptiveWeight: 1, .v, .accordion, index: INDEX_BIND_LAST)
+        TestWindow.new(id: 1, parent: stack)
+        TestWindow.new(id: 2, parent: stack)
+
+        let sim = SimNode.snapshot(workspace)
+        XCTAssertTrue(pullOutOfStack(2, toward: .up, share: 0.3, in: sim))
+        // Two windows: the stack becomes two tiles, the window on top at the size it was shrunk to
+        let column = sim.rootContainer.children[1]
+        assertEquals(column.orientation, .v)
+        assertEquals(column.children.map { $0.allWindows.map(\.windowId) }, [[2], [1]]) // Tests don't flatten the stack of one
+        assertEquals((column.children[0].weight / (column.children[0].weight + column.children[1].weight) * 10).rounded(), 3)
+    }
+
+    func testTheRestOfABiggerStackStaysStacked() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        let stack = TilingContainer(parent: root, adaptiveWeight: 1, .v, .accordion, index: INDEX_BIND_LAST)
+        TestWindow.new(id: 0, parent: stack)
+        TestWindow.new(id: 1, parent: stack)
+        TestWindow.new(id: 2, parent: stack)
+        TestWindow.new(id: 3, parent: root)
+
+        let sim = SimNode.snapshot(workspace)
+        XCTAssertTrue(pullOutOfStack(0, toward: .right, share: 0.5, in: sim))
+        let row = sim.rootContainer
+        assertEquals(row.children.map { $0.windowId ?? 99 }, [99, 0, 3])
+        assertEquals(row.children[0].layout, .accordion)
+        assertEquals(row.children[0].allWindows.compactMap(\.windowId), [1, 2])
+    }
 }
 
 @MainActor

@@ -2,54 +2,54 @@
 
 # nanopress
 
-A tiling window manager for macOS that you drive with the mouse. Drag a window by its title bar, see exactly where it will land, let go.
+Tiling for the rest of us.
 
-nanopress is a fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace). It keeps AeroSpace's tiling engine and adds drag and drop on top, so you don't need to learn keyboard shortcuts.
+Tiling window managers keep every window in view and nothing on top of anything else, but most of them assume you'll learn a page of keyboard shortcuts first. nanopress is a tiling window manager for macOS that you use with the mouse. Drag a window where you want it, see the result before you let go, and nanopress keeps everything tidy from there.
 
-<img src="./design/preview.png" alt="Dragging Ghostty below Dia: the landing slot is highlighted in blue, the windows that move are outlined, and a card reads 'Below Dia, 1 of 2, Tab next'">
+It's a fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace), so the tiling engine underneath is fast and proven, and keyboard users keep all of it.
 
-## How it works
+<img src="./design/preview.png" alt="Dragging a window below another: the landing slot is highlighted in blue, the windows that move are outlined, and a card says what the drop does">
 
-Drag any window by its title bar. While you drag, an overlay shows the layout you'll get when you let go:
+## What it does
 
-- **Blue:** where the window lands
-- **Outlines:** the windows that move or resize because of the drop
-- **Dashed outline:** the slot the window came from
-- **Card:** what the drop does, in words
+**Drag and drop with a preview.** Drag any window by its title bar. Before you let go, nanopress shows where it lands and which windows move to make room. Near an edge of another window, it splits; in the middle, it stacks; hold ⌥ to swap. Press Tab mid-drag to choose between splitting a window, its column, or the whole screen.
 
-What a drop does depends on where the cursor is over another window:
+**Stacks with tabs.** When windows share a spot, they get a row of tabs, like a browser. Click a tab to bring its window forward, scroll over the tabs to flip through them, drag a tab out to give the window its own tile. "+" brings in any other window, even a minimized one. Apps with unread messages show a dot on their tab.
 
-| Cursor | Result |
-| --- | --- |
-| Near an edge | Splits that window and puts yours next to it, as many levels deep as you like |
-| In the middle | Stacks both windows in one slot. Click the edge that peeks out to switch |
-| In the middle, holding ⌥ | Swaps the two windows |
-| Against the screen edge | Puts the window along that whole side of the screen |
-| On an empty workspace | Moves the window there |
+**A map of your screen in the menu bar.** Open nanopress from the menu bar to see every window as a tile. Drag tiles to rearrange, drag the gaps to resize, drop a window on a workspace number to move it there.
 
-When several drops are possible from one spot, the card shows "1 of 3". Press Tab while still holding the mouse to step through them: next to the window, next to its row or column, along the whole screen.
+**Auto-arrange.** Pick how many windows you want to see and nanopress suggests layouts, sized for what each app needs. Rest the pointer on one to try it on your real windows.
 
-Dialogs and settings windows stay floating. Resizing a window by its edge never triggers a drop.
+**It guesses what you mean.**
+- Resize a window over its neighbour, and they become a stack. Shrink a stacked window from a free edge, and it gets its own tile again.
+- Double-click a title bar, and the window gets the whole screen while the others wait as tabs. Double-click again, and your layout comes back.
+- New windows open where you last put that app. When the screen is full, they stack instead of shrinking everything.
+- When a window closes, the window that was stacked to make room gets its tile back.
+- Every change nanopress makes on its own shows a note with Undo.
 
-## Build and run
+**Fits your desk.** nanopress remembers a layout for each display setup: laptop alone, laptop with a monitor, and so on. Unplug a screen and its windows join the one you're on. A laptop screen never gets more tiles than it can show.
 
-You need macOS and Swift 6.
+**Your apps, your rules.** Apps you don't want tiled, like Finder, float on top. Pick a background that makes windows stand out, or keep your wallpaper.
+
+**Works with your AI agent.** Turn on Agents in Settings, and Claude or any other agent that speaks MCP can see your windows and arrange them: "put my editor on the left and stack the chats on the right". Agents only see window titles if you let them.
+
+## Install
+
+Download the latest version from [Releases](https://github.com/emrecaglarid/nanopress/releases), move nanopress to Applications and open it. macOS asks for Accessibility access, which nanopress needs to move windows.
+
+To build it yourself, you need macOS and Swift 6:
 
 ```sh
 swift build
 .build/debug/NanopressApp
 ```
 
-Grant Accessibility access when macOS asks. Run the tests with `swift test`. The command line tool is `.build/debug/nanopress`.
+## For keyboard users
 
-The config file is `~/.nanopress.toml` or `~/.config/nanopress/nanopress.toml`. If neither exists, nanopress reads your AeroSpace config, so switching over keeps your settings. Callback environment variables keep their `AEROSPACE_` names.
-
-## Design
-
-The overlay's UI and the app icon are in [`design/`](./design) as Elyx files: the hover card, the regions, the icons, and a mock desktop that puts them together. Edit them there, then copy the changes into [`DropZoneOverlay.swift`](./Sources/AppBundle/ui/DropZoneOverlay.swift).
+Everything AeroSpace can do still works: workspaces, key bindings, the `nanopress` command line tool and the config file at `~/.nanopress.toml` or `~/.config/nanopress/nanopress.toml`. If you have neither, nanopress reads your AeroSpace config, so your shortcuts come along. [AeroSpace's guide](https://nikitabobko.github.io/AeroSpace/guide) covers all of it; read `aerospace` as `nanopress`.
 
 ## Credits
 
-nanopress is built on [AeroSpace](https://github.com/nikitabobko/AeroSpace) by Nikita Bobko. Its [docs](https://nikitabobko.github.io/AeroSpace/guide) still describe the config file, commands and workspaces, which all work the same here. Read `aerospace` as `nanopress` in commands.
+nanopress is made by Emre Caglar, on top of [AeroSpace](https://github.com/nikitabobko/AeroSpace) by Nikita Bobko. If nanopress is useful to you, consider [sponsoring AeroSpace](https://github.com/sponsors/nikitabobko).
 
 MIT licensed. See [LICENSE.txt](./LICENSE.txt) and [legal/](./legal).

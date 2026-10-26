@@ -227,12 +227,12 @@ private func screenEdge(near point: CGPoint, _ monitor: any MonitorInfo) -> Card
 @MainActor
 private func layout(_ sim: SimNode, _ workspace: Workspace) {
     let monitor = workspace.workspaceMonitor
-    sim.layout(monitor.visibleRectPaddedByOuterGaps, innerGaps: ResolvedGaps(gaps: config.gaps, monitor: monitor).inner)
+    sim.layout(monitor.visibleRectPaddedByOuterGaps, innerGaps: ResolvedGaps(gaps: effectiveGaps(on: monitor), monitor: monitor).inner)
 }
 
 /// Lays out the simulated result. Draws where every window ends up, not where the cursor is
 @MainActor
-private func previewDrop(_ drop: PendingDrop, group: DropPreview.Group?, optionIndex: Int, optionCount: Int) -> DropPreview? {
+func previewDrop(_ drop: PendingDrop, group: DropPreview.Group?, optionIndex: Int, optionCount: Int) -> DropPreview? {
     guard let sim = simulate(drop) else { return nil }
     layout(sim, drop.workspace)
     guard let landingTile = sim.window(drop.window.windowId)?.stackOrSelf, let landingRect = landingTile.rect else { return nil }
@@ -314,6 +314,68 @@ func simulate(_ drop: PendingDrop) -> SimNode? {
     return sim
 }
 
+/// What a resize turned into a stack: `behind` went behind `front`
+struct StackChange: Equatable {
+    let front: UInt32
+    let behind: [UInt32]
+}
+
+/// Resizing a window until a tile is almost gone reads as a wish for a stack. Squeezing a neighbour out means "give
+/// this window the room": the neighbour goes behind it. Shrinking the window itself away means "out of the way": it
+/// goes behind the neighbour that grew. Changes `sim` (the workspace node). Nil when nothing was squeezed out
+@MainActor
+func stackSqueezedTiles(resizing windowId: UInt32, in sim: SimNode) -> StackChange? {
+    guard let window = sim.window(windowId) else { return nil }
+    var node = window.stackOrSelf
+    var squeezed: [SimNode] = []
+    while let parent = node.parent, parent.isContainer {
+        if parent.layout == .tiles {
+            let limit = max(parent.children.map(\.weight).reduce(0, +) * squeezeFraction, squeezeMinimum)
+            if node.weight < limit, let index = node.ownIndex {
+                let neighbours = [index - 1, index + 1].compactMap { parent.children.getOrNil(atIndex: $0) }
+                if let grown = neighbours.max(by: { $0.weight < $1.weight })?.mostRecentWindowRecursive {
+                    return stack(node.allWindows, behind: grown, sim)
+                }
+            }
+            squeezed += parent.children.filter { $0 !== node && $0.weight < limit }
+        }
+        node = parent
+    }
+    if squeezed.isEmpty { return nil }
+    return stack(squeezed.flatMap(\.allWindows), behind: window, sim)
+}
+
+@MainActor
+private func stack(_ windows: [SimNode], behind front: SimNode, _ sim: SimNode) -> StackChange {
+    for window in windows {
+        stackWindow(window, onto: front.stackOrSelf)
+    }
+    front.markAsMostRecentChild() // Stays on top
+    sim.normalizeContainers()
+    return StackChange(front: front.windowId.orDie(), behind: windows.compactMap(\.windowId))
+}
+
+/// Shrinking a stacked window from an edge with nothing next to it reads as "take it out": the window gets the part of
+/// the stack's space on `side` that it was shrunk to, `share` of it, and the rest of the stack gets the remainder
+@MainActor
+func pullOutOfStack(_ windowId: UInt32, toward side: CardinalDirection, share: CGFloat, in sim: SimNode) -> Bool {
+    guard let window = sim.window(windowId), let stack = window.parent, stack.layout == .accordion, stack.children.count > 1 else {
+        return false
+    }
+    window.unbind()
+    splitTile(stack, with: window, side) // Makes them neighbours
+    let total = window.weight + stack.weight
+    window.weight = total * share
+    stack.weight = total - window.weight
+    window.markAsMostRecentChild()
+    sim.normalizeContainers()
+    return true
+}
+
+/// Narrower than this share of its group, or than squeezeMinimum, a tile counts as squeezed out
+private let squeezeFraction: CGFloat = 0.1
+private let squeezeMinimum: CGFloat = 120
+
 /// Hides the preview and returns the drop that should be applied on mouse up, if any
 @MainActor
 func takePendingDrop() -> PendingDrop? {
@@ -335,19 +397,40 @@ func applyDrop(_ drop: PendingDrop) {
         windows[window.windowId] = window
     }
     sim.materialize(into: drop.workspace, windows: windows)
+    learnPlace(of: window, in: sim, on: drop.workspace)
+}
+
+/// A window the user put somewhere by hand shows where windows of its app belong. See bindingDataForNewWindowSplittingBiggestTile
+@MainActor
+private func learnPlace(of window: Window, in sim: SimNode, on workspace: Workspace) {
+    guard let bundleId = window.app.rawAppBundleId,
+          let tile = arrangedTiles(sim, on: workspace).first(where: { $0.windowIds.contains(window.windowId) }) else { return }
+    let area = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
+    guard area.width > 0, area.height > 0 else { return }
+    NanopressSettings.shared.learnPlace(
+        CGPoint(x: (tile.rect.midX - area.minX) / area.width, y: (tile.rect.midY - area.minY) / area.height),
+        for: bundleId,
+    )
 }
 
 extension Window {
     /// Stacks are dropped onto as a whole, so that splitting a stack doesn't split the window on top of it
     @MainActor
-    fileprivate var stackOrSelf: TreeNode {
+    var stackOrSelf: TreeNode {
         if let stack = parent as? TilingContainer, stack.layout == .accordion, !stack.isRootContainer { stack } else { self }
     }
 }
 
 extension SimNode {
-    fileprivate var mostRecentWindowRecursive: SimNode? {
+    var mostRecentWindowRecursive: SimNode? {
         windowId != nil ? self : mostRecentChild?.mostRecentWindowRecursive
+    }
+
+    /// Most recent first, like windowsByRecency
+    var windowsByRecency: [SimNode] {
+        if windowId != nil { return [self] }
+        let ordered = mru + children.filter { child in !mru.contains { $0 === child } }
+        return ordered.flatMap(\.windowsByRecency)
     }
 
     /// Two drops with the same signature produce the same layout
@@ -386,7 +469,7 @@ extension CGPoint {
 // MARK: Drop operations on the simulated tree
 
 @MainActor
-private func stackWindow(_ window: SimNode, onto tile: SimNode) {
+func stackWindow(_ window: SimNode, onto tile: SimNode) {
     if window.parent != nil { window.unbind() }
     if tile.layout == .accordion {
         window.bind(to: tile, weight: WEIGHT_AUTO, index: INDEX_BIND_LAST)

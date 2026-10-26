@@ -5,76 +5,11 @@ import SwiftUI
 @MainActor
 public func menuBar(viewModel: TrayMenuModel) -> some Scene { // todo should it be converted to "SwiftUI struct"?
     MenuBarExtra {
-        let shortIdentification = "\(aeroSpaceAppName) v\(aeroSpaceAppVersion) \(gitShortHash)"
-        let identification      = "\(aeroSpaceAppName) v\(aeroSpaceAppVersion) \(gitHash)"
-        Text(shortIdentification)
-        Button("Copy to clipboard") { identification.copyToClipboard() }
-            .keyboardShortcut("C", modifiers: .command)
-        Divider()
-
-        if viewModel.axPermissionStatus == .granted {
-            if let token: RunSessionGuard = .isServerEnabled, viewModel.lastReloadConfigContainedWarnings {
-                Button {
-                    Task.startUnstructured {
-                        try await runLightSession(.menuBarButton, token) {
-                            let args: ReloadConfigCmdArgs = ReloadConfigCmdArgs(rawArgs: []).copy(\.warningsAsErrors, true)
-                            _ = await reloadConfig_nonCancellable(args: args)
-                        }
-                    }
-                } label: {
-                    Label("Config contains warnings...", systemImage: "exclamationmark.triangle.fill")
-                }
-                Divider()
-            }
-            if let token: RunSessionGuard = .isServerEnabled {
-                Text("Workspaces:")
-                ForEach(viewModel.workspaces, id: \.name) { workspace in
-                    Button {
-                        Task.startUnstructured {
-                            try await runLightSession(.menuBarButton, token) { _ = Workspace.get(byName: workspace.name).focusWorkspace() }
-                        }
-                    } label: {
-                        Toggle(isOn: .constant(workspace.isFocused)) {
-                            Text(workspace.name + workspace.suffix).font(.system(.body, design: .monospaced))
-                        }
-                    }
-                }
-                Divider()
-            }
-            Button {
-                NSWorkspace.shared.open(URL(string: "https://github.com/sponsors/nikitabobko").orDie())
-                viewModel.sponsorshipMessage = sponsorshipPrompts.randomElement().orDie()
-            } label: {
-                Text("Sponsor AeroSpace, which nanopress is built on")
-                Text(viewModel.sponsorshipMessage)
-            }
-            Divider()
-            Button(viewModel.isEnabled ? "Disable" : "Enable") {
-                Task.startUnstructured {
-                    try await runLightSession(.menuBarButton, .forceRun) {
-                        _ = await EnableCommand(args: EnableCmdArgs(rawArgs: [], targetState: .toggle))
-                            .run(.defaultEnv, .emptyStdin)
-                    }
-                }
-            }.keyboardShortcut("E", modifiers: .command)
-            getExperimentalUISettingsMenu(viewModel: viewModel)
-            openConfigButton()
-            reloadConfigButton(warningsAsErrors: false)
-        } else {
-            Button("nanopress requires accessibility permission to move windows") {
-                viewModel.axPermissionStatus = .waitingWithPrompt
-            }
-        }
-        Button("Quit \(aeroSpaceAppName)") {
-            Task.startUnstructured {
-                terminationHandler?.beforeTermination()
-                terminateApp()
-            }
-        }.keyboardShortcut("Q", modifiers: .command)
+        MenuPanel(viewModel: viewModel)
     } label: {
         switch (viewModel.axPermissionStatus, viewModel.isEnabled) {
             case (.granted, true):
-                MenuBarLabel().environmentObject(viewModel)
+                Image(nsImage: menuBarIcon)
             case (.granted, false):
                 Image(systemName: "pause.circle.fill")
                     .resizable()
@@ -85,23 +20,47 @@ public func menuBar(viewModel: TrayMenuModel) -> some Scene { // todo should it 
                     .aspectRatio(contentMode: .fit)
         }
     }
+    .menuBarExtraStyle(.window)
+}
+
+/// The app icon's tiled screen, with the landing tile filled. A template image, so the menu bar tints it
+@MainActor private let menuBarIcon: NSImage = {
+    let image = NSImage(size: NSSize(width: 18, height: 14), flipped: true) { _ in
+        NSColor.black.set()
+        let lineWidth: CGFloat = 1.5
+        for rect in [NSRect(x: 0.75, y: 0.75, width: 7.5, height: 12.5), NSRect(x: 9.75, y: 0.75, width: 7.5, height: 5.5)] {
+            let path = NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2)
+            path.lineWidth = lineWidth
+            path.stroke()
+        }
+        NSBezierPath(roundedRect: NSRect(x: 9, y: 7.5, width: 9, height: 6.5), xRadius: 2.5, yRadius: 2.5).fill()
+        return true
+    }
+    image.isTemplate = true
+    return image
+}()
+
+/// Creates the config from the default one when there's none yet
+@MainActor
+func openConfigFile() {
+    let editor = getTextEditorToOpenConfig()
+    let fallbackConfig: URL = FileManager.default.homeDirectoryForCurrentUser.appending(path: configDotfileName)
+    switch findCustomConfigUrl() {
+        case .file(let url):
+            url.open(with: editor)
+        case .noCustomConfigExists:
+            _ = try? FileManager.default.copyItem(atPath: defaultConfigUrl.path, toPath: fallbackConfig.path)
+            fallbackConfig.open(with: editor)
+        case .ambiguousConfigError:
+            fallbackConfig.open(with: editor)
+    }
 }
 
 @MainActor @ViewBuilder
 func openConfigButton(showShortcutGroup: Bool = false) -> some View {
     let editor = getTextEditorToOpenConfig()
-    let button = Button("Open config in '\(editor.lastPathComponent)'") {
-        let fallbackConfig: URL = FileManager.default.homeDirectoryForCurrentUser.appending(path: configDotfileName)
-        switch findCustomConfigUrl() {
-            case .file(let url):
-                url.open(with: editor)
-            case .noCustomConfigExists:
-                _ = try? FileManager.default.copyItem(atPath: defaultConfigUrl.path, toPath: fallbackConfig.path)
-                fallbackConfig.open(with: editor)
-            case .ambiguousConfigError:
-                fallbackConfig.open(with: editor)
-        }
-    }.keyboardShortcut(",", modifiers: .command)
+    let button = Button("Open config in '\(editor.lastPathComponent)'") { openConfigFile() }
+        .keyboardShortcut(",", modifiers: .command)
     switch showShortcutGroup {
         case true: shortcutGroup(label: Text("⌘ ,"), content: button)
         case false: button

@@ -18,6 +18,18 @@ export colors = tokens {
   origin-border: rgb(0%, 0%, 0%, 34.9%),
   shadow-near: rgb(0%, 0%, 0%, 7.84%),
   shadow-far: rgb(0%, 0%, 0%, 18.0392%),
+  // The menu panel. Mirrors Sources/AppBundle/ui/MenuPanel.swift and LayoutEditor.swift
+  tertiary: rgb(0%, 0%, 0%, 25.098%),
+  on-accent: .white,
+  separator: rgb(0%, 0%, 0%, 10.1961%),
+  row-hover: rgb(0%, 0%, 0%, 7.84%),
+  well-fill: rgb(0%, 0%, 0%, 3.92%),
+  tile-fill: rgb(0%, 0%, 0%, 7.0588%),
+  tile-border: rgb(0%, 0%, 0%, 29.8%),
+  tile-tried-fill: rgb(0%, 47.84%, 100%, 20%),
+  drop-fill: rgb(0%, 47.84%, 100%, 25.098%),
+  lifted-fill: rgb(0%, 47.84%, 100%, 14.9%),
+  segment-selected: .white,
   // The mock desktop around the overlay
   wallpaper: rgb(78.82%, 82.7451%, 87.0588%),
   menu-bar: rgb(100%, 100%, 100%, 70.1961%),

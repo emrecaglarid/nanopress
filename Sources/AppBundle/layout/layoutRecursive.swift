@@ -1,4 +1,5 @@
 import AppKit
+import Common
 
 extension Workspace {
     @MainActor
@@ -63,7 +64,7 @@ private struct LayoutContext {
     @MainActor
     init(_ workspace: Workspace) {
         self.workspace = workspace
-        self.resolvedGaps = ResolvedGaps(gaps: config.gaps, monitor: workspace.workspaceMonitor)
+        self.resolvedGaps = ResolvedGaps(gaps: effectiveGaps(on: workspace.workspaceMonitor), monitor: workspace.workspaceMonitor)
     }
 }
 
@@ -143,6 +144,13 @@ extension TilingContainer {
     @MainActor
     fileprivate func layoutAccordion(_ point: CGPoint, width: CGFloat, height: CGFloat, virtual: Rect, _ context: LayoutContext) async throws {
         guard let mruIndex: Int = mostRecentChild?.ownIndex else { return }
+        // nanopress draws tabs above a stack instead of letting the windows behind peek out. See StackTabs
+        if children.count > 1 && !isUnitTest {
+            for child in children {
+                try await child.layoutRecursive(point.addingYOffset(stackWindowsOffset()), width: width, height: height - stackTabsHeight, virtual: virtual, context)
+            }
+            return
+        }
         for (index, child) in children.enumerated() {
             let padding = CGFloat(config.accordionPadding)
             let (lPadding, rPadding): (CGFloat, CGFloat) = switch index {

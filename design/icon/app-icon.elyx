@@ -1,6 +1,5 @@
-// The nanopress app icon: a tiled screen where one tile is the blue landing slot of a drop.
-// Render at 1024 x 1024 into resources/Assets.xcassets/AppIcon.appiconset/icon.png
-
+// The nanopress app icon: a tiled screen on a blue plate, one tile on its way into its slot, the way a dragged window
+// moves. Render at 1024 x 1024 into resources/Assets.xcassets/AppIcon.appiconset/icon.png
 appIcon = frame {
   left: 0px,
   top: 0px,
@@ -16,17 +15,14 @@ appIcon = frame {
     height: 824px,
     fill: {
       linear-gradient: {
-        angle: 180deg,
-        stops: [
-          stop(0%, rgb(16.86%, 20.39%, 27.0588%)),
-          stop(100%, rgb(7.84%, 9.8%, 13.33%))
-        ]
+        angle: 160deg,
+        stops: [stop(0%, rgb(24%, 62%, 100%)), stop(100%, rgb(2%, 36%, 92%))]
       }
     },
-    border: {color: rgb(100%, 100%, 100%, 12.1569%), width: 2px},
+    border: {color: rgb(100%, 100%, 100%, 20%), width: 2px},
     shadow: {
       drop-shadow: {
-        color: rgb(0%, 0%, 0%, 34.9%),
+        color: rgb(0%, 20%, 60%, 40%),
         offset: point(0px, 12px),
         blur-radius: 24px
       }
@@ -34,54 +30,61 @@ appIcon = frame {
     corner-radius: 185px,
     corner-smoothing: 0.6,
     overflow: .visible,
-    children: [leftTile, topRightTile, landingTile],
+    children: [leftTile, topRightTile, slot, movingTile],
 
+    // The tiles at rest, a little see-through so that the moving one stands out
     leftTile = frame {
-      left: 104px,
-      top: 104px,
-      width: 288px,
-      height: 616px,
-      fill: rgb(100%, 100%, 100%, 18.0392%),
-      border: {color: rgb(100%, 100%, 100%, 34.9%), width: 6px},
-      corner-radius: 44px,
+      left: 120px,
+      top: 120px,
+      width: 280px,
+      height: 584px,
+      fill: rgb(100%, 100%, 100%, 82%),
+      corner-radius: 52px,
       corner-smoothing: 0.6
     }
 
     topRightTile = frame {
-      left: 432px,
-      top: 104px,
-      width: 288px,
-      height: 288px,
-      fill: rgb(100%, 100%, 100%, 18.0392%),
-      border: {color: rgb(100%, 100%, 100%, 34.9%), width: 6px},
-      corner-radius: 44px,
+      left: 424px,
+      top: 120px,
+      width: 280px,
+      height: 280px,
+      fill: rgb(100%, 100%, 100%, 82%),
+      corner-radius: 52px,
       corner-smoothing: 0.6
     }
 
-    // Where the dragged window lands
-    landingTile = frame {
-      left: 432px,
-      top: 432px,
-      width: 288px,
-      height: 288px,
-      fill: {
-        linear-gradient: {
-          angle: 180deg,
-          stops: [
-            stop(0%, rgb(23.92%, 60.78%, 100%)),
-            stop(100%, rgb(3.92%, 42.35%, 100%))
-          ]
-        }
+    // Where the moving tile lands
+    slot = frame {
+      left: 424px,
+      top: 424px,
+      width: 280px,
+      height: 280px,
+      fill: rgb(100%, 100%, 100%, 12%),
+      border: {
+        color: rgb(100%, 100%, 100%, 85%),
+        width: 8px,
+        dash: [26px, 18px]
       },
-      border: {color: rgb(61.1765%, 79.6078%, 100%), width: 6px},
+      corner-radius: 52px,
+      corner-smoothing: 0.6
+    }
+
+    // Lifted and tilted, coming in from the upper left
+    movingTile = frame {
+      left: 372px,
+      top: 376px,
+      width: 280px,
+      height: 280px,
+      transform: [0.985, -0.17, 0, 0.17, 0.985, 0],
+      fill: .white,
       shadow: {
         drop-shadow: {
-          color: rgb(3.92%, 51.76%, 100%, 54.9%),
-          offset: point(0px, 0px),
-          blur-radius: 48px
+          color: rgb(0%, 12%, 45%, 50%),
+          offset: point(0px, 28px),
+          blur-radius: 44px
         }
       },
-      corner-radius: 44px,
+      corner-radius: 52px,
       corner-smoothing: 0.6
     }
   }

@@ -404,11 +404,11 @@ def panel_frames():
         d.rectangle([0, 0, W * S, MB * S], fill=(245, 245, 247, 200))
         d.text((18 * S, MB / 2 * S), '', font=font(14, 500), fill=(30, 30, 34, 255), anchor='lm')
         d.text((44 * S, MB / 2 * S), 'Finder', font=font(13, 700), fill=(30, 30, 34, 255), anchor='lm')
-        # nanopress's icon: the tiled screen, with the landing tile filled
+        # nanopress's icon: three tiles with space between them, the moving one filled
         x, y = icon_x * S, (MB / 2 - 7) * S
-        d.rounded_rectangle([x, y, x + 9 * S, y + 14 * S], 2.5 * S, outline=(30, 30, 34, 255), width=int(1.5 * S))
-        d.rounded_rectangle([x + 9 * S, y, x + 18 * S, y + 7 * S], 2.5 * S, outline=(30, 30, 34, 255), width=int(1.5 * S))
-        d.rounded_rectangle([x + 9 * S, y + 7.5 * S, x + 18 * S, y + 14 * S], 2.5 * S, fill=(30, 30, 34, 255))
+        d.rounded_rectangle([x, y, x + 8 * S, y + 14 * S], 2 * S, outline=(30, 30, 34, 255), width=int(1.5 * S))
+        d.rounded_rectangle([x + 10 * S, y, x + 18 * S, y + 6 * S], 2 * S, outline=(30, 30, 34, 255), width=int(1.5 * S))
+        d.rounded_rectangle([x + 10 * S, y + 8 * S, x + 18 * S, y + 14 * S], 2.5 * S, fill=(30, 30, 34, 255))
         d.text(((W - 70) * S, MB / 2 * S), '9:41', font=font(13, 500), fill=(30, 30, 34, 255), anchor='lm')
         img.paste(layer, (0, 0), layer)
 

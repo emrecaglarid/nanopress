@@ -1,0 +1,434 @@
+import "./cursor.svg" as cursorArrow
+
+// Directions for a new nanopress icon. Each is a 1024 x 1024 canvas with the 824px macOS plate in the middle.
+// The icon in use is app-icon.elyx
+// MARK: A, Cursor
+// The tiles from today's icon on a light plate, with a pointer dropping the blue tile into its slot: "mouse" at a glance
+iconCursor = frame {
+  left: 0px,
+  top: 0px,
+  width: 1024px,
+  height: 1024px,
+  children: cursorPlate,
+
+  cursorPlate = frame {
+    left: 100px,
+    top: 100px,
+    width: 824px,
+    height: 824px,
+    fill: {
+      linear-gradient: {
+        angle: 180deg,
+        stops: [stop(0%, rgb(98%, 98%, 99%)), stop(100%, rgb(88%, 89%, 92%))]
+      }
+    },
+    border: {color: rgb(0%, 0%, 0%, 8%), width: 2px},
+    shadow: {
+      drop-shadow: {
+        color: rgb(0%, 0%, 0%, 30%),
+        offset: point(0px, 12px),
+        blur-radius: 24px
+      }
+    },
+    corner-radius: 185px,
+    corner-smoothing: 0.6,
+    overflow: .visible,
+    children: [
+      cursorLeft,
+      cursorTopRight,
+      cursorSlot,
+      cursorLanding,
+      cursorPointer
+    ],
+
+    cursorLeft = frame {
+      left: 104px,
+      top: 104px,
+      width: 288px,
+      height: 616px,
+      fill: .white,
+      border: {color: rgb(0%, 0%, 0%, 12%), width: 6px},
+      shadow: {
+        drop-shadow: {
+          color: rgb(0%, 0%, 0%, 10%),
+          offset: point(0px, 6px),
+          blur-radius: 12px
+        }
+      },
+      corner-radius: 44px,
+      corner-smoothing: 0.6
+    }
+
+    cursorTopRight = frame {
+      left: 432px,
+      top: 104px,
+      width: 288px,
+      height: 288px,
+      fill: .white,
+      border: {color: rgb(0%, 0%, 0%, 12%), width: 6px},
+      shadow: {
+        drop-shadow: {
+          color: rgb(0%, 0%, 0%, 10%),
+          offset: point(0px, 6px),
+          blur-radius: 12px
+        }
+      },
+      corner-radius: 44px,
+      corner-smoothing: 0.6
+    }
+
+    // Where it lands
+    cursorSlot = frame {
+      left: 432px,
+      top: 432px,
+      width: 288px,
+      height: 288px,
+      border: {color: rgb(4%, 52%, 100%, 60%), width: 6px, dash: [22px, 16px]},
+      corner-radius: 44px,
+      corner-smoothing: 0.6
+    }
+
+    // Lifted, on its way in
+    cursorLanding = frame {
+      left: 388px,
+      top: 392px,
+      width: 288px,
+      height: 288px,
+      fill: {
+        linear-gradient: {
+          angle: 180deg,
+          stops: [
+            stop(0%, rgb(23.92%, 60.78%, 100%)),
+            stop(100%, rgb(3.92%, 42.35%, 100%))
+          ]
+        }
+      },
+      shadow: {
+        drop-shadow: {
+          color: rgb(3.92%, 42%, 100%, 45%),
+          offset: point(0px, 24px),
+          blur-radius: 40px
+        }
+      },
+      corner-radius: 44px,
+      corner-smoothing: 0.6
+    }
+
+    // No shadow: Elyx shadows the asset's box, not the arrow
+    cursorPointer = asset {
+      left: 560px,
+      top: 520px,
+      width: 170px,
+      height: 250px,
+      contents: cursorArrow
+    }
+  }
+}
+
+// MARK: B, Minimap
+// The menu bar panel: a small map of the screen with one tile lifted above its spot
+iconMinimap = frame {
+  left: 1224px,
+  top: 0px,
+  width: 1024px,
+  height: 1024px,
+  children: minimapPlate,
+
+  minimapPlate = frame {
+    left: 100px,
+    top: 100px,
+    width: 824px,
+    height: 824px,
+    fill: {
+      linear-gradient: {
+        angle: 180deg,
+        stops: [stop(0%, rgb(36%, 42%, 98%)), stop(100%, rgb(52%, 30%, 92%))]
+      }
+    },
+    border: {color: rgb(100%, 100%, 100%, 18%), width: 2px},
+    shadow: {
+      drop-shadow: {
+        color: rgb(0%, 0%, 0%, 32%),
+        offset: point(0px, 12px),
+        blur-radius: 24px
+      }
+    },
+    corner-radius: 185px,
+    corner-smoothing: 0.6,
+    overflow: .visible,
+    children: [minimapBar, minimapPanel],
+
+    // The menu bar the panel hangs from
+    minimapBar = frame {
+      left: 0px,
+      top: 0px,
+      width: 824px,
+      height: 120px,
+      fill: rgb(100%, 100%, 100%, 22%),
+      corner-radius: [185px, 185px, 0px, 0px],
+      corner-smoothing: 0.6
+    }
+
+    minimapPanel = frame {
+      left: 132px,
+      top: 196px,
+      width: 560px,
+      height: 500px,
+      fill: rgb(97%, 97%, 99%),
+      shadow: {
+        drop-shadow: {
+          color: rgb(10%, 0%, 40%, 40%),
+          offset: point(0px, 24px),
+          blur-radius: 48px
+        }
+      },
+      corner-radius: 64px,
+      corner-smoothing: 0.6,
+      overflow: .visible,
+      children: [minimapLeft, minimapTopRight, minimapSlot, minimapLifted],
+
+      minimapLeft = frame {
+        left: 48px,
+        top: 48px,
+        width: 220px,
+        height: 404px,
+        fill: rgb(86%, 87%, 91%),
+        corner-radius: 28px,
+        corner-smoothing: 0.6
+      }
+
+      minimapTopRight = frame {
+        left: 292px,
+        top: 48px,
+        width: 220px,
+        height: 190px,
+        fill: rgb(86%, 87%, 91%),
+        corner-radius: 28px,
+        corner-smoothing: 0.6
+      }
+
+      minimapSlot = frame {
+        left: 292px,
+        top: 262px,
+        width: 220px,
+        height: 190px,
+        fill: rgb(36%, 42%, 98%, 14%),
+        border: {color: rgb(36%, 42%, 98%), width: 6px, dash: [18px, 14px]},
+        corner-radius: 28px,
+        corner-smoothing: 0.6
+      }
+
+      minimapLifted = frame {
+        left: 252px,
+        top: 228px,
+        width: 220px,
+        height: 190px,
+        transform: [0.985, -0.17, 0, 0.17, 0.985, 0],
+        fill: {
+          linear-gradient: {
+            angle: 180deg,
+            stops: [
+              stop(0%, rgb(46%, 52%, 100%)),
+              stop(100%, rgb(36%, 38%, 96%))
+            ]
+          }
+        },
+        shadow: {
+          drop-shadow: {
+            color: rgb(20%, 10%, 60%, 45%),
+            offset: point(0px, 20px),
+            blur-radius: 36px
+          }
+        },
+        corner-radius: 28px,
+        corner-smoothing: 0.6
+      }
+    }
+  }
+}
+
+// MARK: C, Press
+// A bold plate and white tiles, one pressed into place. Reads at 16px
+iconPress = frame {
+  left: 2448px,
+  top: 0px,
+  width: 1024px,
+  height: 1024px,
+  children: pressPlate,
+
+  pressPlate = frame {
+    left: 100px,
+    top: 100px,
+    width: 824px,
+    height: 824px,
+    fill: {
+      linear-gradient: {
+        angle: 160deg,
+        stops: [stop(0%, rgb(24%, 62%, 100%)), stop(100%, rgb(2%, 36%, 92%))]
+      }
+    },
+    border: {color: rgb(100%, 100%, 100%, 20%), width: 2px},
+    shadow: {
+      drop-shadow: {
+        color: rgb(0%, 20%, 60%, 40%),
+        offset: point(0px, 12px),
+        blur-radius: 24px
+      }
+    },
+    corner-radius: 185px,
+    corner-smoothing: 0.6,
+    overflow: .visible,
+    children: [pressLeft, pressTopRight, pressPressed],
+
+    pressLeft = frame {
+      left: 120px,
+      top: 120px,
+      width: 280px,
+      height: 584px,
+      fill: .white,
+      shadow: {
+        drop-shadow: {
+          color: rgb(0%, 15%, 50%, 35%),
+          offset: point(0px, 14px),
+          blur-radius: 24px
+        }
+      },
+      corner-radius: 52px,
+      corner-smoothing: 0.6
+    }
+
+    pressTopRight = frame {
+      left: 424px,
+      top: 120px,
+      width: 280px,
+      height: 280px,
+      fill: .white,
+      shadow: {
+        drop-shadow: {
+          color: rgb(0%, 15%, 50%, 35%),
+          offset: point(0px, 14px),
+          blur-radius: 24px
+        }
+      },
+      corner-radius: 52px,
+      corner-smoothing: 0.6
+    }
+
+    // Pressed in: smaller, flat against the plate, see-through
+    pressPressed = frame {
+      left: 436px,
+      top: 436px,
+      width: 256px,
+      height: 256px,
+      fill: rgb(100%, 100%, 100%, 55%),
+      border: {color: .white, width: 8px},
+      corner-radius: 44px,
+      corner-smoothing: 0.6
+    }
+  }
+}
+
+// MARK: D, Tabs
+// A window with the stack tabs under it, the front one blue: the part of nanopress no other tiler has
+iconTabs = frame {
+  left: 3672px,
+  top: 0px,
+  width: 1024px,
+  height: 1024px,
+  children: tabsPlate,
+
+  tabsPlate = frame {
+    left: 100px,
+    top: 100px,
+    width: 824px,
+    height: 824px,
+    fill: {
+      linear-gradient: {
+        angle: 180deg,
+        stops: [stop(0%, rgb(17%, 20%, 27%)), stop(100%, rgb(8%, 10%, 13%))]
+      }
+    },
+    border: {color: rgb(100%, 100%, 100%, 12%), width: 2px},
+    shadow: {
+      drop-shadow: {
+        color: rgb(0%, 0%, 0%, 35%),
+        offset: point(0px, 12px),
+        blur-radius: 24px
+      }
+    },
+    corner-radius: 185px,
+    corner-smoothing: 0.6,
+    overflow: .visible,
+    children: [tabsBack, tabsWindow, tabsRow],
+
+    // The window behind, peeking out
+    tabsBack = frame {
+      left: 150px,
+      top: 120px,
+      width: 524px,
+      height: 440px,
+      fill: rgb(100%, 100%, 100%, 30%),
+      corner-radius: 48px,
+      corner-smoothing: 0.6
+    }
+
+    tabsWindow = frame {
+      left: 112px,
+      top: 160px,
+      width: 600px,
+      height: 440px,
+      fill: rgb(96%, 96%, 98%),
+      shadow: {
+        drop-shadow: {
+          color: rgb(0%, 0%, 0%, 40%),
+          offset: point(0px, 16px),
+          blur-radius: 32px
+        }
+      },
+      corner-radius: 48px,
+      corner-smoothing: 0.6,
+      children: tabsTitleBar,
+
+      tabsTitleBar = frame {
+        left: 0px,
+        top: 0px,
+        width: 600px,
+        height: 84px,
+        fill: rgb(88%, 89%, 92%),
+        corner-radius: [48px, 48px, 0px, 0px],
+        corner-smoothing: 0.6
+      }
+    }
+
+    // One block of tabs: round at its ends, nearly square where tabs meet
+    tabsRow = frame {
+      left: 112px,
+      top: 628px,
+      width: 600px,
+      height: 84px,
+      layout: {item-gap: 10px},
+      children: [tabFront, tabSecond, tabThird],
+
+      tabFront = frame {
+        width: 100%,
+        height: 84px,
+        fill: rgb(4%, 52%, 100%),
+        corner-radius: [30px, 10px, 10px, 30px]
+      }
+
+      tabSecond = frame {
+        width: 100%,
+        height: 84px,
+        fill: rgb(100%, 100%, 100%, 30%),
+        corner-radius: 10px
+      }
+
+      tabThird = frame {
+        width: 100%,
+        height: 84px,
+        fill: rgb(100%, 100%, 100%, 30%),
+        corner-radius: [10px, 30px, 30px, 10px]
+      }
+    }
+  }
+}

@@ -3,7 +3,8 @@ import "../tokens/lengths.elyx" as lengthTokens
 
 // The parts of the menu panel. Mirrors Sources/AppBundle/ui/MenuPanel.swift and LayoutEditor.swift
 // MARK: Menu bar icon
-// The app icon's tiled screen with the landing tile filled. Drawn as a template image, so the menu bar tints it
+// The app icon's three tiles with space between them, the moving one filled. Drawn as a template image, so the menu
+// bar tints it
 export menuBarIcon = frame {
   left: 40px,
   top: 40px,
@@ -14,26 +15,26 @@ export menuBarIcon = frame {
   leftTile = frame {
     left: 0px,
     top: 0px,
-    width: 9px,
+    width: 8px,
     height: 14px,
     border: {color: colorTokens.colors.primary, width: 1.5px},
-    corner-radius: 2.5px
+    corner-radius: 2px
   }
 
   topRightTile = frame {
-    left: 9px,
+    left: 10px,
     top: 0px,
-    width: 9px,
-    height: 7px,
+    width: 8px,
+    height: 6px,
     border: {color: colorTokens.colors.primary, width: 1.5px},
-    corner-radius: 2.5px
+    corner-radius: 2px
   }
 
   landingTile = frame {
-    left: 9px,
-    top: 7.5px,
-    width: 9px,
-    height: 6.5px,
+    left: 10px,
+    top: 8px,
+    width: 8px,
+    height: 6px,
     fill: colorTokens.colors.primary,
     corner-radius: 2.5px
   }

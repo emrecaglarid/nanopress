@@ -551,7 +551,7 @@ compass = frame {
 
 // What the hovered target does
 targetLabel = frame {
-  left: 1100px,
+  left: 1180px,
   top: 700px,
   width: .auto,
   height: 30px,

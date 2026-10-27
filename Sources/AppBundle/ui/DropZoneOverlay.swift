@@ -163,10 +163,10 @@ private struct DropPreviewView: View {
             }
             LandingZone(landing: landing, hole: middle)
             if preview.action == .stack {
-                // The dragged window drops in on top: what a stack is
-                StackDropIn()
+                // The dragged window takes the spot and gets a tab next to the window that was there, where the tabs go
+                StackTabsPreview(count: preview.landingStackCount, atTop: settings.tabsPosition == .top)
                     .id("\(preview.landingRect)") // Plays again when the cursor moves to another window
-                    .placed(in: CGRect(x: landing.minX + 16, y: landing.minY + 16, width: landing.width - 32, height: landing.height - 32))
+                    .placed(in: landing)
             }
             if preview.action == .swap, let origin = preview.originRect {
                 // The other half of a swap: where the window under the cursor goes
@@ -180,7 +180,7 @@ private struct DropPreviewView: View {
                 .fixedSize()
                 .position(x: landing.midX, y: landing.minY + min(120, landing.height * 0.22))
             if let middle {
-                MiddleZone(active: isMiddle ? preview.action : nil, color: hintColor)
+                MiddleZone(active: isMiddle ? preview.action : nil, color: hintColor, tabsAtTop: settings.tabsPosition == .top)
                     .placed(in: middle)
             }
             if preview.optionCount > 1 {
@@ -247,11 +247,12 @@ private struct ZoneArrows: View {
 private struct MiddleZone: View {
     let active: DropPreview.Action?
     let color: Color
+    let tabsAtTop: Bool
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         HStack(spacing: 0) {
-            half("Stack", isActive: active == .stack) { StackGlyph(isAnimating: active == .stack) }
+            half("Stack", isActive: active == .stack) { StackGlyph(isAnimating: active == .stack, tabsAtTop: tabsAtTop) }
             Rectangle().fill(color.opacity(0.5)).frame(width: 1.5)
             half("Swap", isActive: active == .swap) { SwapGlyph(isAnimating: active == .swap) }
         }
@@ -274,31 +275,51 @@ private struct MiddleZone: View {
 private let arriveCurve = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.22)
 private let tradeCurve = Animation.timingCurve(0.77, 0, 0.175, 1, duration: 0.25)
 
-/// A card dropping onto another, once, when Stack is hovered. Back where it started when the cursor leaves
+/// A window with its tabs. On hover, once: the window shrinks into a new tab, and a new window takes its place with its
+/// own tab in front. The tabs are on the side the setting puts them
 private struct StackGlyph: View {
     let isAnimating: Bool
-    @State private var landed = true
+    let tabsAtTop: Bool
+    @State private var stacked = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
-        ZStack {
-            shape.strokeBorder(lineWidth: 1.5).frame(width: 18, height: 13).offset(x: 3, y: -3)
-            shape.fill(.background.opacity(0.01)).overlay(shape.strokeBorder(lineWidth: 1.5))
-                .frame(width: 18, height: 13)
-                .offset(y: landed || reduceMotion ? 1 : -6)
-                .opacity(landed ? 1 : 0)
+        let window = RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+        let tab = RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+        VStack(spacing: 2) {
+            if tabsAtTop { tabs(tab) }
+            ZStack {
+                // The window that was there, shrinking toward its new tab
+                window.strokeBorder(lineWidth: 1.5)
+                    .scaleEffect(stacked && !reduceMotion ? 0.35 : 1, anchor: tabsAtTop ? .topLeading : .bottomLeading)
+                    .opacity(stacked ? 0 : 1)
+                // The dragged window, taking its place
+                window.fill().opacity(stacked ? 0.9 : 0)
+            }
+            .frame(width: 22, height: 14)
+            if !tabsAtTop { tabs(tab) }
         }
-        .frame(width: 24, height: 20)
+        .frame(width: 26, height: 22)
         .onChange(of: isAnimating) { isAnimating in playOnce(isAnimating) }
         .onAppear { playOnce(isAnimating) }
     }
 
+    /// The window that was there keeps its tab; the new one's tab appears in front
+    private func tabs(_ tab: RoundedRectangle) -> some View {
+        HStack(spacing: 1.5) {
+            tab.strokeBorder(lineWidth: 1).frame(width: 7, height: 4)
+            tab.fill().frame(width: 7, height: 4)
+                .opacity(stacked ? 1 : 0)
+                .scaleEffect(x: stacked || reduceMotion ? 1 : 0.6, y: 1, anchor: .leading)
+            Spacer(minLength: 0)
+        }
+        .frame(width: 22)
+    }
+
     private func playOnce(_ isAnimating: Bool) {
-        guard isAnimating else { return landed = true }
-        // Lift it first, then drop it on the next update: in the same update there'd be nothing to animate
-        landed = false
-        DispatchQueue.main.async { withAnimation(arriveCurve) { landed = true } }
+        guard isAnimating else { return stacked = false }
+        stacked = false
+        DispatchQueue.main.async { withAnimation(arriveCurve) { stacked = true } }
     }
 }
 
@@ -326,21 +347,36 @@ private struct SwapGlyph: View {
     }
 }
 
-/// On Stack: a card the size of the window drops a short way into the landing area, once, so it reads as "on top of"
-private struct StackDropIn: View {
-    @State private var landed = false
+/// On Stack: the tabs the stack will have, on the side the setting puts them. The dragged window's tab slides in last,
+/// in front, once
+private struct StackTabsPreview: View {
+    /// Windows in the stack after the drop, the dragged one included
+    let count: Int
+    let atTop: Bool
+    @State private var shown = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: regionRadius, style: .continuous)
-        shape
-            .fill(Color.white.opacity(0.18))
-            .overlay(shape.strokeBorder(Color.white.opacity(0.8), lineWidth: 1.5))
-            .offset(y: landed || reduceMotion ? 0 : -12)
-            .opacity(landed ? 1 : 0)
-            .onAppear {
-                withAnimation(.timingCurve(0.23, 1, 0.32, 1, duration: 0.2)) { landed = true }
+        let tab = RoundedRectangle(cornerRadius: 6, style: .continuous)
+        VStack(spacing: 0) {
+            if !atTop { Spacer(minLength: 0) }
+            HStack(spacing: 3) {
+                ForEach(0 ..< max(count - 1, 1), id: \.self) { _ in
+                    tab.fill(Color.white.opacity(0.35)).frame(width: 72, height: 22)
+                }
+                // The new one, in front
+                tab.fill(Color.white.opacity(0.95)).frame(width: 72, height: 22)
+                    .overlay(tab.strokeBorder(Color.accentColor, lineWidth: 1.5))
+                    .opacity(shown ? 1 : 0)
+                    .offset(x: shown || reduceMotion ? 0 : -12)
+                Spacer(minLength: 0)
             }
+            .padding(10)
+            if atTop { Spacer(minLength: 0) }
+        }
+        .onAppear {
+            withAnimation(.timingCurve(0.23, 1, 0.32, 1, duration: 0.2)) { shown = true }
+        }
     }
 }
 

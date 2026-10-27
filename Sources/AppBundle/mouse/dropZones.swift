@@ -38,6 +38,8 @@ private struct DragSession {
     /// Tab steps through the options of a split zone. The choice is kept while the cursor stays in the same zone
     var optionsKey: DropOptions.Key? = nil
     var optionIndex = 0
+    /// Esc was pressed: nothing is dropped, and the window goes back to its tile when the button is released
+    var isCancelled = false
 }
 
 /// Split zones offer one option per group that the hovered tile is at the edge of: the tile, its row or column, the screen.
@@ -57,6 +59,8 @@ private struct DropOptions {
 @MainActor private var dragSession: DragSession? = nil
 @MainActor private var pendingDrop: PendingDrop? = nil
 @MainActor private var nextOptionHotKey: HotKey? = nil
+/// Taken only while a window is dragged, so that Esc reaches apps the rest of the time
+@MainActor private var cancelHotKey: HotKey? = nil
 
 func dropZone(for point: CGPoint, in rect: Rect) -> DropZone {
     guard rect.width > 0 && rect.height > 0 else { return .stack }
@@ -123,6 +127,8 @@ private func selectNextDropOption() {
 
 @MainActor
 private func refreshDropPreview(_ window: Window) {
+    if dragSession?.isCancelled == true { return }
+    setCancelHotKeyEnabled(dragSession != nil)
     guard let session = dragSession, !session.isResize, !session.isDialog,
           let found = findDropOptions(window, at: mouseLocation), !found.options.isEmpty
     else {
@@ -145,6 +151,29 @@ private func refreshDropPreview(_ window: Window) {
     pendingDrop = option.drop
     setNextOptionHotKeyEnabled(found.options.count > 1)
     DropZoneOverlay.shared.show(preview)
+}
+
+/// Esc during a drag: the preview goes, and on release the window goes back to where it was
+@MainActor
+private func setCancelHotKeyEnabled(_ enabled: Bool) {
+    if enabled && cancelHotKey == nil {
+        cancelHotKey = HotKey(key: .escape, modifiers: [], keyDownHandler: {
+            Task.startUnstructured { @MainActor in cancelDrag() }
+        })
+    } else if !enabled, let hotKey = cancelHotKey {
+        hotKey.isEnabled = false
+        cancelHotKey = nil
+    }
+}
+
+@MainActor
+private func cancelDrag() {
+    guard dragSession != nil, isLeftMouseButtonDown else { return setCancelHotKeyEnabled(false) }
+    dragSession?.isCancelled = true
+    pendingDrop = nil
+    setNextOptionHotKeyEnabled(false)
+    setCancelHotKeyEnabled(false)
+    DropZoneOverlay.shared.hide()
 }
 
 /// Tab is taken only while there is something to switch between, so it doesn't reach the dragged window's app
@@ -396,6 +425,7 @@ private let squeezeMinimum: CGFloat = 120
 func takePendingDrop() -> PendingDrop? {
     DropZoneOverlay.shared.hide()
     setNextOptionHotKeyEnabled(false)
+    setCancelHotKeyEnabled(false)
     dragSession = nil
     defer { pendingDrop = nil }
     return pendingDrop

@@ -274,9 +274,7 @@ dragZonesSimple = frame {
     width: 150px,
     height: 80px,
     layout: {align-items: .stretch},
-    fill: rgb(14%, 16%, 22%, 92%),
     border: {color: rgb(100%, 100%, 100%, 70%), width: 1.5px},
-    filter: {type: .background-blur, radius: 14px},
     corner-radius: 12px,
     children: [scrimStack, scrimDivider, scrimSwap],
 
@@ -1025,28 +1023,54 @@ zoneScrim = frame {
   filter: {type: .background-blur, radius: 14px},
   corner-radius: 12px,
   corner-smoothing: 0.6,
-  children: [scrimActive, scrimUp, scrimDown, scrimRight, scrimMiddle],
+  children: [
+    scrimActive,
+    scrimActiveLabel,
+    scrimUp,
+    scrimDown,
+    scrimRight,
+    scrimMiddle
+  ],
 
-  // The zone under the cursor, drawn as its result: Ghostty takes Dia's left half
-  scrimActive = frame {
+  // The zone under the cursor, drawn as its result: Ghostty takes Dia's left half. The middle box is cut out of it, so
+  // the box keeps the same tint as the rest of the window
+  scrimActive = boolean {
     left: 0px,
     top: 0px,
     width: 231px,
     height: 524px,
-    layout: {direction: .column, align-items: .center},
     fill: rgb(4%, 52%, 100%, 72%),
-    border: {color: rgb(100%, 100%, 100%, 60%), width: 1.5px},
-    corner-radius: [12px, 0px, 0px, 12px],
-    padding-top: 120px,
-    children: scrimActiveLabel,
+    operation: .subtract,
+    children: [activeArea, activeHole],
 
-    scrimActiveLabel = text {
-      fill: .white,
-      contents: "Left of Dia",
-      font-size: 15,
-      font-family: "SF Pro",
-      font-style: "Semibold"
+    activeArea = shape {
+      left: 0px,
+      top: 0px,
+      width: 231px,
+      height: 524px,
+      type: .rect,
+      corner-radius: [12px, 0px, 0px, 12px]
     }
+
+    // Where the middle box is
+    activeHole = shape {
+      left: 160px,
+      top: 222px,
+      width: 150px,
+      height: 80px,
+      type: .rect,
+      corner-radius: 12px
+    }
+  }
+
+  scrimActiveLabel = text {
+    left: 75px,
+    top: 126px,
+    fill: .white,
+    contents: "Left of Dia",
+    font-size: 15,
+    font-family: "SF Pro",
+    font-style: "Semibold"
   }
 
   scrimUp = text {

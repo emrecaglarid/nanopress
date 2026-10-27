@@ -189,6 +189,81 @@ dragZones = frame {
   }
 }
 
+// MARK: Zones, two layers
+// The hovered window is dimmed and blurred, so the hints read over any content: arrows at the edges, Stack | Swap in
+// the middle. The zone under the cursor turns blue with its label inside. Nothing else on screen
+dragZonesSimple = frame {
+  left: 4760px,
+  top: 40px,
+  width: 960px,
+  height: 540px,
+  fill: colorTokens.colors.wallpaper,
+  overflow: .visible,
+  children: [
+    simpleDia,
+    simpleDiaContent,
+    simpleSlack,
+    simpleSlackContent,
+    simpleOrigin,
+    simpleDragged,
+    simpleScrim
+  ],
+
+  simpleDia = frame : mockWindow {
+    left: 8px,
+    top: 8px,
+    width: 470px,
+    height: 524px
+  }
+
+  // Stand-in for real window content, to judge how the hints read over it
+  simpleDiaContent = frame : mockContent {
+    left: 24px,
+    top: 58px
+  }
+
+  simpleSlack = frame : mockWindow {
+    left: 486px,
+    top: 8px,
+    width: 466px,
+    height: 258px,
+
+    mockTitleBar {
+      mockAppIcon {
+        fill[0].linear-gradient.stops[0].color: rgb(44.31%, 21.18%, 47.45%),
+        fill[0].linear-gradient.stops[1].color: rgb(29.02%, 10.98%, 31.37%)
+      }
+
+      mockAppName {
+        contents: "Slack"
+      }
+    }
+  }
+
+  simpleSlackContent = frame : mockContent {
+    left: 502px,
+    top: 58px,
+    height: 190px
+  }
+
+  simpleOrigin = frame : overlay.originRegion {
+    left: 486px,
+    top: 274px,
+    width: 466px,
+    height: 258px
+  }
+
+  simpleDragged = frame : draggedWindow {
+    left: 60px,
+    top: 214px
+  }
+
+  simpleScrim = frame : zoneScrim {
+    left: 8px,
+    top: 8px
+  }
+}
+
 // MARK: Stack
 // On the middle button: Ghostty joins Dia as a tab
 dragStack = frame {
@@ -809,5 +884,192 @@ zoneMap = frame {
     left: 225px,
     top: 253px,
     opacity: 0.5
+  }
+}
+
+// Gray lines standing in for a window's text and images
+mockContent = frame {
+  left: 1800px,
+  top: 1700px,
+  width: 430px,
+  height: 450px,
+  layout: {direction: .column, item-gap: 14px},
+  children: [
+    contentHero,
+    contentLineA,
+    contentLineB,
+    contentLineC,
+    contentImage,
+    contentLineD,
+    contentLineE
+  ],
+
+  contentHero = text {
+    fill: colorTokens.colors.primary,
+    contents: "Kytöniitty, 102 m²",
+    font-size: 26,
+    font-family: "SF Pro",
+    font-style: "Bold"
+  }
+
+  contentLineA = text {
+    width: 100%,
+    fill: colorTokens.colors.secondary,
+    contents: "Three bedrooms, a sauna and a glazed balcony facing the park. Renovated in 2021.",
+    font-size: 14,
+    font-family: "SF Pro"
+  }
+
+  contentLineB = frame {
+    width: 80%,
+    height: 10px,
+    fill: rgb(0%, 0%, 0%, 10%),
+    corner-radius: 5px
+  }
+
+  contentLineC = frame {
+    width: 60%,
+    height: 10px,
+    fill: rgb(0%, 0%, 0%, 10%),
+    corner-radius: 5px
+  }
+
+  contentImage = frame {
+    width: 100%,
+    height: 160px,
+    fill: {
+      linear-gradient: {
+        angle: 160deg,
+        stops: [stop(0%, rgb(56%, 72%, 86%)), stop(100%, rgb(86%, 74%, 58%))]
+      }
+    },
+    corner-radius: 8px
+  }
+
+  contentLineD = frame {
+    width: 90%,
+    height: 10px,
+    fill: rgb(0%, 0%, 0%, 10%),
+    corner-radius: 5px
+  }
+
+  contentLineE = frame {
+    width: 70%,
+    height: 10px,
+    fill: rgb(0%, 0%, 0%, 10%),
+    corner-radius: 5px
+  }
+}
+
+// One layer over the hovered window: content dimmed and blurred, white hints on top, the zone under the cursor in blue
+zoneScrim = frame {
+  left: 2400px,
+  top: 1700px,
+  width: 470px,
+  height: 524px,
+  fill: rgb(12%, 14%, 20%, 55%),
+  filter: {type: .background-blur, radius: 14px},
+  corner-radius: 12px,
+  corner-smoothing: 0.6,
+  children: [scrimActive, scrimUp, scrimDown, scrimRight, scrimMiddle],
+
+  // The zone under the cursor, drawn as its result: Ghostty takes Dia's left half
+  scrimActive = frame {
+    left: 0px,
+    top: 0px,
+    width: 231px,
+    height: 524px,
+    layout: {direction: .column, align-items: .center},
+    fill: rgb(4%, 52%, 100%, 72%),
+    border: {color: rgb(100%, 100%, 100%, 60%), width: 1.5px},
+    corner-radius: [12px, 0px, 0px, 12px],
+    padding-top: 120px,
+    children: scrimActiveLabel,
+
+    scrimActiveLabel = text {
+      fill: .white,
+      contents: "Left of Dia",
+      font-size: 15,
+      font-family: "SF Pro",
+      font-style: "Semibold"
+    }
+  }
+
+  scrimUp = text {
+    left: 227px,
+    top: 40px,
+    fill: rgb(100%, 100%, 100%, 85%),
+    contents: "↑",
+    font-size: 24,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+
+  scrimDown = text {
+    left: 227px,
+    top: 452px,
+    fill: rgb(100%, 100%, 100%, 85%),
+    contents: "↓",
+    font-size: 24,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+
+  scrimRight = text {
+    left: 420px,
+    top: 246px,
+    fill: rgb(100%, 100%, 100%, 85%),
+    contents: "→",
+    font-size: 24,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+
+  // The middle: stack on the left half, swap on the right, split by a line
+  scrimMiddle = frame {
+    left: 160px,
+    top: 222px,
+    width: 150px,
+    height: 80px,
+    layout: {align-items: .stretch},
+    border: {color: rgb(100%, 100%, 100%, 70%), width: 1.5px},
+    corner-radius: 12px,
+    children: [scrimStack, scrimDivider, scrimSwap],
+
+    scrimStack = frame {
+      width: 100%,
+      height: 100%,
+      layout: {justify-content: .center, align-items: .center},
+      children: scrimStackText,
+
+      scrimStackText = text {
+        fill: rgb(100%, 100%, 100%, 90%),
+        contents: "Stack",
+        font-size: 13,
+        font-family: "SF Pro",
+        font-style: "Semibold"
+      }
+    }
+
+    scrimDivider = frame {
+      width: 1.5px,
+      height: 100%,
+      fill: rgb(100%, 100%, 100%, 70%)
+    }
+
+    scrimSwap = frame {
+      width: 100%,
+      height: 100%,
+      layout: {justify-content: .center, align-items: .center},
+      children: scrimSwapText,
+
+      scrimSwapText = text {
+        fill: rgb(100%, 100%, 100%, 90%),
+        contents: "Swap",
+        font-size: 13,
+        font-family: "SF Pro",
+        font-style: "Semibold"
+      }
+    }
   }
 }

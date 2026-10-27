@@ -3,7 +3,7 @@ import Common
 import SwiftUI
 
 /// Room above a stack for its tabs, including the gap between the tabs and the windows
-let stackTabsHeight: CGFloat = 36
+let stackTabsHeight: CGFloat = 32
 private let tabsGap: CGFloat = 4
 /// Around the tabs, inside the strip
 private let stripPadding: CGFloat = 3
@@ -286,6 +286,8 @@ private final class TabStrip {
         measureView = NSHostingView(rootView: StackTabsView(model: measureModel, addWindow: {}, select: { _ in }))
         panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .normal
+        // Dark glass in either mode: light glass glares on a dark wallpaper, and the white pill stands out on dark
+        panel.appearance = NSAppearance(named: .darkAqua)
         panel.collectionBehavior = [.ignoresCycle, .fullScreenNone]
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
@@ -340,7 +342,7 @@ private final class TabStrip {
         if model.fillsWidth != fillsWidth { model.fillsWidth = fillsWidth }
         // In whole points, the way the window server keeps it, so that an unchanged frame compares equal and the bar
         // isn't resized and redrawn after every layout
-        let frame = NSRect(x: room.minX.rounded(), y: room.minY.rounded(), width: room.width.rounded(), height: room.height.rounded())
+        let frame = NSRect(x: room.minX.rounded(), y: room.minY.rounded(), width: min(width, room.width).rounded(), height: room.height.rounded())
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         if !panel.isVisible { panel.orderFrontRegardless() }
         // Right above the stack's front window, and below whatever is above that, like a Finder window over the stack.
@@ -425,7 +427,7 @@ struct StackTabsView: View {
     let select: (UInt32) -> Void
 
     var body: some View {
-        // One strip of glass the width of the stack. The window in front gets a pill; the rest are just their names
+        // One strip of glass, as wide as its tabs. The window in front gets a pill; the rest are just their names
         HStack(spacing: 2) {
             ForEach(model.tabs) { tab in
                 let isFront = tab.windowId == model.front
@@ -435,11 +437,12 @@ struct StackTabsView: View {
             // Out of sight until the strip is hovered
             AddWindowButton(action: addWindow)
                 .opacity(model.isHovered ? 1 : 0)
-            Spacer(minLength: 0)
         }
         .padding(stripPadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: model.fillsWidth ? .infinity : nil, maxHeight: .infinity, alignment: .leading)
         .modifier(StripGlass())
+        .fixedSize(horizontal: !model.fillsWidth, vertical: false)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -503,8 +506,8 @@ private struct StackTabButton: View {
                 HStack(spacing: 6) {
                     icon
                     // The app in bold, then the window in a quieter weight: "Dia  Kytöniitty listing"
-                    (Text(tab.app).font(.system(size: 12, weight: .semibold)) + Text(detail).font(.system(size: 12)).foregroundColor(.secondary))
-                        .foregroundColor(isFront ? .primary : .secondary)
+                    (Text(tab.app).font(.system(size: 12, weight: .semibold)) + Text(detail).font(.system(size: 12)).foregroundColor(isFront ? .black.opacity(0.55) : .secondary))
+                        .foregroundColor(isFront ? .black : .secondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: 220, alignment: .leading)
@@ -568,7 +571,7 @@ private struct StackTabButton: View {
 private func tabFill(isFront: Bool, isHovered: Bool) -> Color {
     if isFront {
         return Color(nsColor: NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1, alpha: 0.18) : .white
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 0.96, alpha: 1) : .white
         })
     }
     return isHovered ? Color.primary.opacity(0.07) : .clear
@@ -579,7 +582,7 @@ private struct StripGlass: ViewModifier {
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: stripRadius, style: .continuous)
         if #available(macOS 26, *) {
-            content.glassEffect(.regular, in: shape)
+            content.glassEffect(.regular.tint(.black.opacity(0.25)), in: shape)
         } else {
             content
                 .background(StripBlur().clipShape(shape))

@@ -5,8 +5,8 @@ import SwiftUI
 /// Room above a stack for its tabs, including the gap between the tabs and the windows
 let stackTabsHeight: CGFloat = 28
 private let tabsGap: CGFloat = 4
-/// Clear of the window's rounded corner, which would show the tab behind it
-private let tabsLeadingInset: CGFloat = 12
+/// Clear of the window's rounded corner with room to spare, so that the front tab meets a straight edge
+private let tabsLeadingInset: CGFloat = 24
 private let inactiveTabHeight: CGFloat = 22
 /// Between neighbouring tabs
 private let tabsSpacing: CGFloat = 3

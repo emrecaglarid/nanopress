@@ -154,51 +154,99 @@ def drag_frames():
         gx = (grab[0] - bottom_right[0]) * k
         gy = (grab[1] - bottom_right[1]) * k
         return (cur[0] - gx, cur[1] - gy, w, h)
-    target = (95, 270)
+
+    # The box in the middle of the window under the cursor: stack on its left half, swap on its right
+    def middle_box(r):
+        x, y, w, h = r
+        bw = min(min(max(w * 0.36, 140), 240), w * 0.6)
+        bh = min(min(max(h * 0.22, 72), 120), h * 0.5)
+        return (x + (w - bw) / 2, y + (h - bh) / 2, bw, bh)
+
+    # The rest of the window splits toward its nearest edge, along the diagonals
+    def zone(r, cur):
+        x, y, w, h = r
+        fx, fy = (cur[0] - x) / w, (cur[1] - y) / h
+        side = min([('left', fx), ('right', 1 - fx), ('top', fy), ('bottom', 1 - fy)], key=lambda e: e[1])[0]
+        rect = {'left': (x, y, w / 2, h), 'right': (x + w / 2, y, w / 2, h),
+                'top': (x, y, w, h / 2), 'bottom': (x, y + h / 2, w, h / 2)}[side]
+        title = {'left': 'Left of Dia', 'right': 'Right of Dia', 'top': 'Above Dia', 'bottom': 'Below Dia'}[side]
+        return rect, title
+
+    def hints(img, target, cur):
+        X, Y, Wd, Hd = sc(target)
+        box = (int(X), int(Y), int(X + Wd), int(Y + Hd))
+        # Blurred and a little dimmed, so the hints read over the window's content
+        muted = img.crop(box).filter(ImageFilter.GaussianBlur(8 * S))
+        muted = Image.blend(muted, Image.new('RGB', muted.size, (0, 0, 0)), 0.12)
+        mask = Image.new('L', muted.size, 0)
+        ImageDraw.Draw(mask).rounded_rectangle([0, 0, muted.size[0], muted.size[1]], 12 * S, fill=255)
+        img.paste(muted, box[:2], mask)
+
+        rect, title = zone(target, cur)
+        mb = middle_box(target)
+        layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer)
+        zx, zy, zw, zh = sc((rect[0] + 4, rect[1] + 4, rect[2] - 8, rect[3] - 8))
+        d.rounded_rectangle([zx, zy, zx + zw, zy + zh], 12 * S, fill=ACCENT + (140,), outline=(255, 255, 255, 150), width=int(1.5 * S))
+        bx, by, bw, bh = sc(mb)
+        d.rounded_rectangle([bx, by, bx + bw, by + bh], 12 * S, fill=(0, 0, 0, 0))  # The box stays clear of the blue
+        img.paste(layer, (0, 0), layer)
+
+        layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer)
+        ink = (30, 30, 34)
+        d.rounded_rectangle([bx, by, bx + bw, by + bh], 12 * S, outline=ink + (128,), width=int(1.5 * S))
+        d.line([bx + bw / 2, by, bx + bw / 2, by + bh], fill=ink + (128,), width=int(1.5 * S))
+        d.text((bx + bw / 4, by + bh / 2), 'Stack', font=font(13, 600), fill=ink + (215,), anchor='mm')
+        d.text((bx + bw * 3 / 4, by + bh / 2), 'Swap', font=font(13, 600), fill=ink + (215,), anchor='mm')
+        arrow = font(20, 600)
+        for ch, (ax, ay) in [('↑', (X + Wd / 2, Y + 36 * S)), ('↓', (X + Wd / 2, Y + Hd - 36 * S)),
+                             ('←', (X + 36 * S, Y + Hd / 2)), ('→', (X + Wd - 36 * S, Y + Hd / 2))]:
+            d.text((ax, ay), ch, font=arrow, fill=ink + (190,), anchor='mm')
+        d.text((zx + zw / 2, zy + min(120 * S, zh * 0.22)), title, font=font(15, 600), fill=(255, 255, 255, 255), anchor='mm')
+        img.paste(layer, (0, 0), layer)
+
+    keys = [(0, (760, 470)), (14, grab), (18, grab), (32, (420, 190)), (42, (250, 150)), (54, (95, 220)), (66, (95, 220))]
+    def cursor_at(i):
+        for (f1, p1), (f2, p2) in zip(keys, keys[1:]):
+            if f1 <= i <= f2:
+                t = ease_io((i - f1) / max(f2 - f1, 1))
+                return (lerp(p1[0], p2[0], t), lerp(p1[1], p2[1], t))
+        return keys[-1][1]
+
     frames = []
-    total = 150
+    total = 154
+    drop = 66
     for i in range(total):
         img = BG.copy()
-        t_move = (i - 18) / 30            # dragging
-        t_drop = (i - 62) / 14            # settling
-        dragging = 18 <= i < 62
-        dropped = i >= 62
-        if i < 14:
-            cur = (lerp(760, grab[0], ease_io(i / 14)), lerp(470, grab[1], ease_io(i / 14)))
-        elif not dropped:
-            cur = (lerp(grab[0], target[0], ease_io(t_move)), lerp(grab[1], target[1], ease_io(t_move)))
-        else:
-            cur = target
-        over_edge = dragging and cur[0] < 210
-        if not dropped:
+        cur = cursor_at(i)
+        dragging = 18 <= i < drop
+        if i < drop:
             window(img, left, 'Dia')
             window(img, top_right, 'Slack')
             if dragging:
                 region(img, bottom_right, dashed=True)
             else:
                 window(img, bottom_right, 'Ghostty')
-            if over_edge:
-                region(img, dia_end, fill_alpha=0, outline=150)
-                region(img, slack_end, fill_alpha=0, outline=150)
-                region(img, ghostty_end, fill_alpha=80)
+            over_dia = dragging and cur[0] < left[0] + left[2]
+            if over_dia:
+                hints(img, left, cur)
             if dragging:
                 window(img, lifted_rect(cur, i), 'Ghostty', alpha=235, lift=True)
-            if over_edge:
-                card(img, (ghostty_end[0] + ghostty_end[2] / 2, H - 60), 'Left of Dia')
         else:
-            t = ease(t_drop)
-            lifted = lifted_rect(target, 61)
+            t = ease((i - drop) / 14)
+            lifted = lifted_rect(cur, drop - 1)
             window(img, lerp_rect(left, dia_end, t), 'Dia')
             window(img, lerp_rect(top_right, slack_end, t), 'Slack')
             window(img, lerp_rect(lifted, ghostty_end, t), 'Ghostty')
-            if i > 118:
-                cur = (lerp(target[0], 760, ease_io((i - 118) / 24)), lerp(target[1], 470, ease_io((i - 118) / 24)))
+            if i > 122:
+                cur = (lerp(cur[0], 760, ease_io((i - 122) / 24)), lerp(cur[1], 470, ease_io((i - 122) / 24)))
         cursor(img, cur, pressed=dragging)
         frames.append(img)
     # Fade back to the start so the loop doesn't jump
     first = frames[0]
     for k in range(10):
-        frames.append(Image.blend(frames[-1 - k * 0] if k == 0 else frames[-1], first, (k + 1) / 10))
+        frames.append(Image.blend(frames[-1], first, (k + 1) / 10))
     return frames
 
 # MARK: Tabs
@@ -208,7 +256,7 @@ def tabs_frames():
     left = (M, M, 464, H - 2 * M)
     rx = M + 464 + G
     rw = W - M - rx
-    tab_h = 26
+    tab_h = 28
     stack = (rx, M, rw, H - 2 * M - tab_h - 4)
     f = font(11, 600)
     f2 = font(11, 400)
@@ -221,48 +269,46 @@ def tabs_frames():
             text_w = (probe.textlength(app, font=f) + probe.textlength('  ' + APPS[app][1], font=f2)) / S
             w = 10 + 16 + 6 + text_w + 10
             rects.append((x, H - M - tab_h, w, tab_h))
-            x += w + 3
-        rects.append((x, H - M - tab_h, 30, tab_h))  # "+"
+            x += w + 2
+        rects.append((x, H - M - tab_h, 28, tab_h))  # "+"
         return rects
 
-    def fill_for(is_front, is_hovered):
-        base = (236, 236, 239)
-        if is_front: return tuple(int(lerp(c, a, 0.16)) for c, a in zip(base, ACCENT))
-        return tuple(c - 14 for c in base) if is_hovered else base
-
-    def block(d, rect, fill, leading, trailing):
-        # Round at the ends of the block of tabs, nearly square where tabs meet
-        X, Y, Wd, Hd = sc(rect)
-        d.rounded_rectangle([X, Y, X + Wd / 2 + leading, Y + Hd], leading, fill=fill + (255,))
-        d.rounded_rectangle([X + Wd / 2 - trailing, Y, X + Wd, Y + Hd], trailing, fill=fill + (255,))
-
-    def draw_tabs(img, order, front, hovered, show_plus, plus_hovered, badge):
+    def draw_tabs(img, order, front, hovered, plus_hovered, badge):
+        rects = tab_rects(order)
         layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
         d = ImageDraw.Draw(layer)
-        rects = tab_rects(order)
-        outer, inner = 8 * S, 3 * S
-        for idx, (app, rect) in enumerate(zip(order, rects)):
+        # One strip of dark glass, as wide as its tabs
+        X0, Y0 = rects[0][0] * S, rects[0][1] * S
+        X1, Y1 = (rects[-1][0] + rects[-1][2]) * S, (rects[-1][1] + rects[-1][3]) * S
+        under = img.crop((int(X0), int(Y0), int(X1), int(Y1))).filter(ImageFilter.GaussianBlur(10 * S))
+        under = Image.blend(under, Image.new('RGB', under.size, (20, 20, 24)), 0.45)
+        mask = Image.new('L', under.size, 0)
+        ImageDraw.Draw(mask).rounded_rectangle([0, 0, under.size[0], under.size[1]], 9 * S, fill=255)
+        img.paste(under, (int(X0), int(Y0)), mask)
+        d.rounded_rectangle([X0, Y0, X1, Y1], 9 * S, outline=(255, 255, 255, 40), width=S)
+        for app, rect in zip(order, rects):
             is_front = app == front
-            last = idx == len(order) - 1 and not show_plus
-            block(d, rect, fill_for(is_front, hovered == app), outer if idx == 0 else inner, outer if last else inner)
             X, Y, Wd, Hd = sc(rect)
+            if is_front:
+                d.rounded_rectangle([X, Y, X + Wd, Y + Hd], 9 * S, fill=(245, 245, 247, 255))
+            elif hovered == app:
+                d.rounded_rectangle([X, Y, X + Wd, Y + Hd], 9 * S, fill=(255, 255, 255, 22))
             color, title = APPS[app]
             ix = X + 10 * S
             d.rounded_rectangle([ix, Y + Hd / 2 - 8 * S, ix + 16 * S, Y + Hd / 2 + 8 * S], 4 * S, fill=color + (255,))
             if badge == app and not is_front:
-                d.ellipse([ix + 11 * S, Y + Hd / 2 - 12 * S, ix + 20 * S, Y + Hd / 2 - 3 * S], fill=(255, 59, 48, 255), outline=(236, 236, 239, 255), width=S)
+                d.ellipse([ix + 11 * S, Y + Hd / 2 - 12 * S, ix + 20 * S, Y + Hd / 2 - 3 * S], fill=(255, 59, 48, 255), outline=(60, 60, 66, 255), width=S)
             tx = ix + 22 * S
-            text_color = ACCENT if is_front else (60, 60, 67)
-            d.text((tx, Y + Hd / 2), app, font=f, fill=text_color + (255,), anchor='lm')
+            d.text((tx, Y + Hd / 2), app, font=f, fill=((20, 20, 24) if is_front else (225, 225, 230)) + (255,), anchor='lm')
             tx += d.textlength(app, font=f)
-            d.text((tx, Y + Hd / 2), '  ' + title, font=f2, fill=(text_color if is_front else (120, 120, 128)) + (255,), anchor='lm')
-        if show_plus:
-            rect = rects[-1]
-            block(d, rect, fill_for(False, plus_hovered), inner, outer)
-            X, Y, Wd, Hd = sc(rect)
-            cx, cy = X + Wd / 2, Y + Hd / 2
-            d.line([cx - 6 * S, cy, cx + 6 * S, cy], fill=(90, 90, 98, 255), width=2 * S)
-            d.line([cx, cy - 6 * S, cx, cy + 6 * S], fill=(90, 90, 98, 255), width=2 * S)
+            d.text((tx, Y + Hd / 2), '  ' + title, font=f2, fill=((110, 110, 118) if is_front else (160, 160, 168)) + (255,), anchor='lm')
+        rect = rects[-1]
+        X, Y, Wd, Hd = sc(rect)
+        if plus_hovered:
+            d.rounded_rectangle([X, Y, X + Wd, Y + Hd], 9 * S, fill=(255, 255, 255, 22))
+        cx, cy = X + Wd / 2, Y + Hd / 2
+        d.line([cx - 5 * S, cy, cx + 5 * S, cy], fill=(200, 200, 206, 255), width=2 * S)
+        d.line([cx, cy - 5 * S, cx, cy + 5 * S], fill=(200, 200, 206, 255), width=2 * S)
         img.paste(layer, (0, 0), layer)
 
     # The "Bring here" menu: every window outside the stack, where it is in quieter text
@@ -335,16 +381,14 @@ def tabs_frames():
         hovered = None
         for app, r in zip(order, rects_now):
             if r[0] <= cur[0] <= r[0] + r[2] and r[1] <= cur[1] <= r[1] + r[3]: hovered = app
-        bar = (rects_now[0][0], rects_now[0][1] - 4, rects_now[-1][0] + rects_now[-1][2] - rects_now[0][0], tab_h + 8)
         menu_open = 110 <= i < 142
-        on_bar = menu_open or (bar[0] <= cur[0] <= bar[0] + bar[2] and bar[1] <= cur[1] <= bar[1] + bar[3])
         plus_rect = rects_now[-1]
         plus_hovered = menu_open or (plus_rect[0] <= cur[0] <= plus_rect[0] + plus_rect[2] and plus_rect[1] <= cur[1] <= plus_rect[1] + plus_rect[3])
         img = scene(front, order)
         if previous and i - switched_at < 6:
             # A short crossfade from the window that was in front
             img = Image.blend(scene(previous, order), img, (i - switched_at + 1) / 6)
-        draw_tabs(img, order, front, hovered, on_bar, plus_hovered, badge='Mail')
+        draw_tabs(img, order, front, hovered, plus_hovered, badge='Mail')
         if menu_open:
             highlighted = 1 if i >= 124 else None
             draw_menu(img, menu, highlighted, alpha=min(255, (i - 110 + 1) * 64))

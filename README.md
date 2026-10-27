@@ -11,10 +11,10 @@ nanopress keeps your windows side by side, so none of them hides another. You ar
 ## Drag a window where you want it
 
 <p align="center">
-  <img src="./docs/readme/drag-and-drop.gif" width="720" alt="Dragging Ghostty over Dia: the half of Dia under the cursor turns blue, then the windows move into place">
+  <img src="./docs/readme/drag-and-drop.gif" width="720" alt="Dragging Ghostty over Dia: the half of Dia under the cursor lights up, then the windows move into place">
 </p>
 
-Drag a window by its title bar over another window. The part under the cursor turns blue and says where yours goes:
+Drag a window by its title bar over another window. The part under the cursor lights up and says where yours goes:
 
 | Drop on | What happens |
 | --- | --- |

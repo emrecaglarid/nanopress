@@ -1001,7 +1001,7 @@ private struct MapTabView: View {
 
 extension CGRect {
     /// The half on the `direction` side
-    fileprivate func half(_ direction: CardinalDirection) -> CGRect {
+    func half(_ direction: CardinalDirection) -> CGRect {
         switch direction {
             case .left: CGRect(x: minX, y: minY, width: width / 2, height: height)
             case .right: CGRect(x: midX, y: minY, width: width / 2, height: height)

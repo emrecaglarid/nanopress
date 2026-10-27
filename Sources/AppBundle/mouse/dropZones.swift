@@ -312,14 +312,25 @@ func previewDrop(_ drop: PendingDrop, group: DropPreview.Group?, optionIndex: In
         originRect = origin.rect
     }
     var targetRect: CGRect? = nil
-    if case .tile(let targetWindowId, _, _) = drop.op {
-        targetRect = Window.get(byId: targetWindowId)?.stackOrSelf.lastAppliedLayoutPhysicalRect?.cgRect
+    var zoneRect: CGRect? = nil
+    if case .tile(let targetWindowId, let zone, let level) = drop.op, let target = Window.get(byId: targetWindowId)?.stackOrSelf {
+        targetRect = target.lastAppliedLayoutPhysicalRect?.cgRect
+        // The zone under the cursor: the half of the tile, or of its row, column or the screen with Tab, on that side
+        var node: TreeNode = target
+        for _ in 0 ..< level {
+            guard let parent = node.parent as? TilingContainer else { break }
+            node = parent
+        }
+        if let rect = node.lastAppliedLayoutPhysicalRect?.cgRect {
+            zoneRect = if case .split(let direction) = zone { rect.half(direction) } else { rect }
+        }
     }
     return DropPreview(
         action: action,
         targetName: targetName,
         monitorRect: monitor.rect.cgRect,
         targetRect: targetRect,
+        zoneRect: zoneRect,
         originRect: originRect?.cgRect,
         landingRect: landingRect.cgRect,
         landingStackCount: landingTile.allWindows.count,

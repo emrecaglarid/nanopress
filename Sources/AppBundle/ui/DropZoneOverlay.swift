@@ -31,6 +31,9 @@ struct DropPreview: Equatable {
     var monitorRect: CGRect
     /// The window under the cursor, where it is now. It's dimmed, with the drop zones drawn on it
     var targetRect: CGRect?
+    /// The zone under the cursor, drawn in blue: half of the window on that side, the whole window to stack or swap.
+    /// Where the window ends up can differ once the layout settles, which is what landingRect is
+    var zoneRect: CGRect?
     /// The empty tile the window was dragged out of
     var originRect: CGRect?
     /// Where the dragged window ends up. It's the whole stack if the window ends up in one
@@ -146,7 +149,8 @@ private struct DropPreviewView: View {
     @ObservedObject private var settings = NanopressSettings.shared
 
     var body: some View {
-        let landing = local(preview.landingRect).insetBy(dx: regionInset, dy: regionInset)
+        // The blue goes where the cursor is, so that it always matches the hints
+        let landing = local(preview.zoneRect ?? preview.landingRect).insetBy(dx: regionInset, dy: regionInset)
         let target = preview.targetRect.map { local($0).insetBy(dx: regionInset, dy: regionInset) }
         let middle = preview.targetRect.map { local(dropZoneMiddle(of: $0)) }
         let isMiddle = preview.action == .stack || preview.action == .swap

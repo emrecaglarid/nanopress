@@ -8,6 +8,10 @@ final class NanopressSettings: ObservableObject {
     static let shared = NanopressSettings()
 
     @Published var spacing: Spacing { didSet { store(spacing.rawValue, "spacing"); relayout() } }
+    /// How much the window under a dragged window is dimmed, 0 to 0.6. Being tuned: see Settings, Advanced
+    @Published var dragDimming: Double { didSet { defaults?.set(dragDimming, forKey: "dragDimming") } }
+    /// Whether the window under a dragged window is blurred
+    @Published var dragBlur: Bool { didSet { defaults?.set(dragBlur, forKey: "dragBlur") } }
     /// Which side of a stack its tabs are on
     @Published var tabsPosition: TabsPosition { didSet { store(tabsPosition.rawValue, "tabsPosition"); relayout() } }
     @Published var backgroundMode: BackgroundMode { didSet { store(backgroundMode.rawValue, "backgroundMode"); BackdropPanels.shared.refresh() } }
@@ -31,6 +35,8 @@ final class NanopressSettings: ObservableObject {
     private init() {
         spacing = (defaults?.string(forKey: "spacing")).flatMap(Spacing.init(rawValue:)) ?? .auto
         tabsPosition = (defaults?.string(forKey: "tabsPosition")).flatMap(TabsPosition.init(rawValue:)) ?? .bottom
+        dragDimming = defaults?.object(forKey: "dragDimming") as? Double ?? 0.12
+        dragBlur = defaults?.object(forKey: "dragBlur") as? Bool ?? true
         // "background" is from before the modes: the wallpaper, or one of the colors
         let legacyBackground = defaults?.string(forKey: "background")
         backgroundMode = (defaults?.string(forKey: "backgroundMode")).flatMap(BackgroundMode.init(rawValue:))

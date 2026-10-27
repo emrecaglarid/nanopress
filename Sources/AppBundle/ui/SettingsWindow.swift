@@ -149,6 +149,19 @@ private struct SettingsView: View {
                     AgentsSettings(settings: settings)
 
                 case .advanced:
+                    Section("Drag preview") {
+                        SettingRow(nil, "How the window under a dragged window looks. These are for trying out values and will go once they're settled.") {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Dimming").font(.system(size: 13))
+                                    Slider(value: $settings.dragDimming, in: 0 ... 0.6)
+                                    Text("\(Int(settings.dragDimming * 100))%").font(.system(size: 12)).monospacedDigit().frame(width: 36, alignment: .trailing)
+                                }
+                                Toggle("Blur", isOn: $settings.dragBlur).font(.system(size: 13))
+                            }
+                        }
+                    }
+
                     Section("Config file") {
                         SettingRow(nil, "Keyboard shortcuts and window rules live here. Reload after you edit it.") {
                             HStack {

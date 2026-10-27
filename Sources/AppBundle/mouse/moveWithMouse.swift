@@ -13,12 +13,19 @@ func movedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutableR
             scheduleCancellableCompleteRefreshSession(.ax(notif))
             return
         }
-        moveWithMouseTask?.cancel()
-        moveWithMouseTask = Task.startUnstructured {
-            try checkCancellation()
-            try await runLightSession(.ax(notif), token) {
-                try await moveWithMouse(window)
-            }
+        handleWindowMovedWithMouse(window, token: token, notif: notif)
+    }
+}
+
+/// A window moved while the left button is down: preview where it would drop
+@MainActor
+func handleWindowMovedWithMouse(_ window: Window, token: RunSessionGuard? = .isServerEnabled, notif: String = "mouseDragged") {
+    guard let token else { return }
+    moveWithMouseTask?.cancel()
+    moveWithMouseTask = Task.startUnstructured {
+        try checkCancellation()
+        try await runLightSession(.ax(notif), token) {
+            try await moveWithMouse(window)
         }
     }
 }

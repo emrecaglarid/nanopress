@@ -143,6 +143,7 @@ private struct DropOverlayView: View {
 /// blue, so that it always keeps the window's tint
 private struct DropPreviewView: View {
     let preview: DropPreview
+    @ObservedObject private var settings = NanopressSettings.shared
 
     var body: some View {
         let landing = local(preview.landingRect).insetBy(dx: regionInset, dy: regionInset)
@@ -156,32 +157,50 @@ private struct DropPreviewView: View {
                     .transition(.opacity)
             }
             if let target {
-                TargetScrim()
+                TargetScrim(dimming: settings.dragDimming, blur: settings.dragBlur)
                     .placed(in: target)
-                ZoneArrows(target: target)
+                ZoneArrows(target: target, color: hintColor)
             }
-            if !isMiddle {
-                LandingZone(landing: landing, hole: middle)
-                Text(preview.title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .fixedSize()
-                    .position(x: landing.midX, y: landing.minY + min(120, landing.height * 0.22))
+            LandingZone(landing: landing, hole: middle)
+            if preview.action == .stack {
+                // The dragged window drops in on top: what a stack is
+                StackDropIn()
+                    .id("\(preview.landingRect)") // Plays again when the cursor moves to another window
+                    .placed(in: CGRect(x: landing.minX + 16, y: landing.minY + 16, width: landing.width - 32, height: landing.height - 32))
             }
+            if preview.action == .swap, let origin = preview.originRect {
+                // The other half of a swap: where the window under the cursor goes
+                SwapDestination(name: preview.targetName ?? "It")
+                    .placed(in: local(origin).insetBy(dx: regionInset, dy: regionInset))
+            }
+            Text(preview.title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                .fixedSize()
+                .position(x: landing.midX, y: landing.minY + min(120, landing.height * 0.22))
             if let middle {
-                MiddleZone(active: isMiddle ? preview.action : nil)
+                MiddleZone(active: isMiddle ? preview.action : nil, color: hintColor)
                     .placed(in: middle)
             }
             if preview.optionCount > 1 {
-                Text("\(preview.optionIndex + 1) of \(preview.optionCount), Tab for the next")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .fixedSize()
-                    .position(x: landing.midX, y: landing.minY + min(120, landing.height * 0.22) + 22)
+                HStack(spacing: 6) {
+                    Text("\(preview.optionIndex + 1) of \(preview.optionCount)")
+                    Keycap(label: "Tab")
+                    Text("for the next")
+                }
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
+                .fixedSize()
+                .position(x: landing.midX, y: landing.minY + min(120, landing.height * 0.22) + 26)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
+
+    /// Dark on a light scrim, white once it's dimmed enough to be dark
+    private var hintColor: Color { settings.dragDimming > 0.35 ? .white : .primary }
 
     private func local(_ rect: CGRect) -> CGRect {
         rect.offsetBy(dx: -preview.monitorRect.minX, dy: -preview.monitorRect.minY)
@@ -190,16 +209,22 @@ private struct DropPreviewView: View {
 
 /// Mutes whatever the window shows, so that the hints on top read over any content
 private struct TargetScrim: View {
+    let dimming: Double
+    let blur: Bool
+
     var body: some View {
-        BehindWindowBlur()
-            .overlay(Color.black.opacity(0.35))
-            .clipShape(RoundedRectangle(cornerRadius: regionRadius, style: .continuous))
+        ZStack {
+            if blur { BehindWindowBlur() }
+            Color.black.opacity(dimming)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: regionRadius, style: .continuous))
     }
 }
 
 /// The edge zones, one arrow each
 private struct ZoneArrows: View {
     let target: CGRect
+    let color: Color
 
     var body: some View {
         let inset: CGFloat = 36
@@ -214,31 +239,137 @@ private struct ZoneArrows: View {
     private func arrow(_ symbol: String) -> some View {
         Image(systemName: symbol)
             .font(.system(size: 20, weight: .semibold))
-            .foregroundStyle(.white.opacity(0.85))
+            .foregroundStyle(color.opacity(0.75))
     }
 }
 
-/// Stack on the left half, swap on the right. The half under the cursor fills in
+/// Stack on the left half, swap on the right. The half under the cursor fills in, and its icon shows what it does
 private struct MiddleZone: View {
     let active: DropPreview.Action?
+    let color: Color
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         HStack(spacing: 0) {
-            half("Stack", isActive: active == .stack)
-            Rectangle().fill(.white.opacity(0.7)).frame(width: 1.5)
-            half("Swap", isActive: active == .swap)
+            half("Stack", isActive: active == .stack) { StackGlyph(isAnimating: active == .stack) }
+            Rectangle().fill(color.opacity(0.5)).frame(width: 1.5)
+            half("Swap", isActive: active == .swap) { SwapGlyph(isAnimating: active == .swap) }
         }
         .clipShape(shape)
-        .overlay(shape.strokeBorder(.white.opacity(0.7), lineWidth: 1.5))
+        .overlay(shape.strokeBorder(color.opacity(0.5), lineWidth: 1.5))
     }
 
-    private func half(_ title: String, isActive: Bool) -> some View {
-        Text(title)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(.white.opacity(isActive ? 1 : 0.9))
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(isActive ? Color.accentColor.opacity(0.85) : .clear)
+    private func half(_ title: String, isActive: Bool, @ViewBuilder glyph: () -> some View) -> some View {
+        VStack(spacing: 6) {
+            glyph()
+            Text(title).font(.system(size: 13, weight: .semibold))
+        }
+        .foregroundStyle(isActive ? Color.white : color.opacity(0.85))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(isActive ? Color.accentColor.opacity(0.85) : .clear)
+    }
+}
+
+/// A card dropping onto another, over and over while Stack is hovered
+private struct StackGlyph: View {
+    let isAnimating: Bool
+    @State private var dropped = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
+        ZStack {
+            shape.strokeBorder(lineWidth: 1.5).frame(width: 18, height: 13).offset(x: 3, y: -3)
+            shape.fill(.background.opacity(0.01)).overlay(shape.strokeBorder(lineWidth: 1.5))
+                .frame(width: 18, height: 13)
+                .offset(y: isAnimating && !reduceMotion && !dropped ? -9 : 1)
+                .opacity(isAnimating && !reduceMotion && !dropped ? 0 : 1)
+        }
+        .frame(width: 24, height: 20)
+        .onAppear(perform: loop)
+        .onChange(of: isAnimating) { _ in loop() }
+    }
+
+    private func loop() {
+        dropped = false
+        guard isAnimating, !reduceMotion else { return }
+        withAnimation(.timingCurve(0.2, 0, 0, 1, duration: 0.5).repeatForever(autoreverses: false)) { dropped = true }
+    }
+}
+
+/// Two squares trading places, over and over while Swap is hovered
+private struct SwapGlyph: View {
+    let isAnimating: Bool
+    @State private var swapped = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 3, style: .continuous)
+        ZStack {
+            shape.strokeBorder(lineWidth: 1.5).frame(width: 10, height: 13).offset(x: swapped ? 6 : -6)
+            shape.fill().frame(width: 10, height: 13).offset(x: swapped ? -6 : 6)
+        }
+        .frame(width: 24, height: 20)
+        .onAppear(perform: loop)
+        .onChange(of: isAnimating) { _ in loop() }
+    }
+
+    private func loop() {
+        swapped = false
+        guard isAnimating, !reduceMotion else { return }
+        withAnimation(.timingCurve(0.2, 0, 0, 1, duration: 0.6).repeatForever(autoreverses: true)) { swapped = true }
+    }
+}
+
+/// On Stack: a card the size of the window slides down into the landing area, so it reads as "on top of"
+private struct StackDropIn: View {
+    @State private var landed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: regionRadius, style: .continuous)
+        shape
+            .fill(Color.white.opacity(0.18))
+            .overlay(shape.strokeBorder(Color.white.opacity(0.8), lineWidth: 1.5))
+            .offset(y: landed || reduceMotion ? 0 : -24)
+            .opacity(landed || reduceMotion ? 1 : 0)
+            .onAppear {
+                withAnimation(.timingCurve(0.2, 0, 0, 1, duration: 0.35)) { landed = true }
+            }
+    }
+}
+
+/// On Swap: the empty slot the dragged window came from, which the other window takes
+private struct SwapDestination: View {
+    let name: String
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: regionRadius, style: .continuous)
+        shape
+            .fill(Color.accentColor.opacity(0.18))
+            .overlay(shape.strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 2, dash: [6, 5])))
+            .overlay {
+                Text("\(name) moves here")
+                    .font(.system(size: 15, weight: .semibold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.regularMaterial, in: Capsule())
+            }
+    }
+}
+
+/// A key, drawn like one
+private struct Keycap: View {
+    let label: String
+
+    var body: some View {
+        Text(label)
+            .font(.system(size: 11, weight: .semibold))
+            .padding(.horizontal, 6)
+            .frame(minHeight: 18)
+            .background(Color.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.white.opacity(0.6), lineWidth: 1))
+            .accessibilityLabel(label)
     }
 }
 
@@ -251,7 +382,7 @@ private struct LandingZone: View {
         let shape = RoundedRectangle(cornerRadius: regionRadius, style: .continuous)
         ZStack(alignment: .topLeading) {
             shape
-                .fill(Color.accentColor.opacity(0.72))
+                .fill(Color.accentColor.opacity(0.55))
                 .placed(in: landing)
             shape
                 .strokeBorder(.white.opacity(0.6), lineWidth: 1.5)
@@ -274,7 +405,7 @@ private struct LandingZone: View {
 private struct BehindWindowBlur: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
-        view.material = .hudWindow
+        view.material = .popover
         view.blendingMode = .behindWindow
         view.state = .active
         return view

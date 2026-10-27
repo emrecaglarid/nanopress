@@ -90,8 +90,8 @@ dragSplit = frame {
     top: 181px,
 
     compassLeft {
-      fill[0].color: colorTokens.colors.landing-fill,
       border[0].color: colorTokens.colors.accent,
+      fill[0].color: colorTokens.colors.landing-fill,
       border[0].width: 2px
     }
   }
@@ -102,13 +102,90 @@ dragSplit = frame {
   }
 
   splitLabel = frame : targetLabel {
-    left: 172px,
-    top: 340px
+    left: 227px,
+    top: 339px
   }
 
   splitDragged = frame : draggedWindow {
     left: 120px,
     top: 214px
+  }
+}
+
+// MARK: Zones
+// Simpler: only the window under the cursor reacts. It shows its five zones faintly, each with an icon, and the zone
+// under the cursor fills in as the landing preview. No buttons, no targets on other windows
+dragZones = frame {
+  left: 3560px,
+  top: 40px,
+  width: 960px,
+  height: 540px,
+  fill: colorTokens.colors.wallpaper,
+  overflow: .visible,
+  children: [
+    zonesDia,
+    zonesSlack,
+    zonesOrigin,
+    zonesDragged,
+    zonesMap,
+    zonesLanding,
+    zonesLabel
+  ],
+
+  zonesDia = frame : mockWindow {
+    left: 8px,
+    top: 8px,
+    width: 470px,
+    height: 524px
+  }
+
+  zonesSlack = frame : mockWindow {
+    left: 486px,
+    top: 8px,
+    width: 466px,
+    height: 258px,
+
+    mockTitleBar {
+      mockAppIcon {
+        fill[0].linear-gradient.stops[0].color: rgb(44.31%, 21.18%, 47.45%),
+        fill[0].linear-gradient.stops[1].color: rgb(29.02%, 10.98%, 31.37%)
+      }
+
+      mockAppName {
+        contents: "Slack"
+      }
+    }
+  }
+
+  zonesOrigin = frame : overlay.originRegion {
+    left: 486px,
+    top: 274px,
+    width: 466px,
+    height: 258px
+  }
+
+  zonesDragged = frame : draggedWindow {
+    left: 60px,
+    top: 214px
+  }
+
+  // The five zones of the window under the cursor, faint
+  zonesMap = frame : zoneMap {
+    left: 8px,
+    top: 8px
+  }
+
+  // The zone under the cursor: its result, drawn where it happens
+  zonesLanding = frame : overlay.landingRegion {
+    left: 8px,
+    top: 8px,
+    width: 231px,
+    height: 524px
+  }
+
+  zonesLabel = frame : targetLabel {
+    left: 70px,
+    top: 330px
   }
 }
 
@@ -195,8 +272,8 @@ dragStack = frame {
     top: 181px,
 
     compassMiddle {
-      fill[0].color: colorTokens.colors.landing-fill,
       border[0].color: colorTokens.colors.accent,
+      fill[0].color: colorTokens.colors.landing-fill,
       border[0].width: 2px
     }
   }
@@ -390,20 +467,20 @@ compassButton = frame {
 compass = frame {
   left: 900px,
   top: 700px,
-  width: 150px,
+  width: 227px,
   height: 150px,
   overflow: .visible,
   children: [
     compassUp,
     compassLeft,
     compassMiddle,
-    compassRight,
     compassDown,
-    compassSwap
+    compassSwap,
+    compassRight
   ],
 
   compassUp = frame : compassButton {
-    left: 53px,
+    left: 81px,
     top: 0px,
     overrides: [insert(compassUpIcon, after = .nil)],
 
@@ -425,7 +502,7 @@ compass = frame {
   }
 
   compassMiddle = frame : compassButton {
-    left: 53px,
+    left: 59px,
     top: 53px,
     overrides: [insert(compassMiddleIcon, after = .nil)],
 
@@ -435,19 +512,8 @@ compass = frame {
     }
   }
 
-  compassRight = frame : compassButton {
-    left: 106px,
-    top: 53px,
-    overrides: [insert(compassRightIcon, after = .nil)],
-
-    compassRightIcon = frame : overlay.splitIconRight {
-      left: 0px,
-      top: 0px
-    }
-  }
-
   compassDown = frame : compassButton {
-    left: 53px,
+    left: 81px,
     top: 106px,
     overrides: [insert(compassDownIcon, after = .nil)],
 
@@ -459,14 +525,24 @@ compass = frame {
 
   // Swap gets the corner: used less, and away from the arrows
   compassSwap = frame : compassButton {
-    left: 112px,
-    top: 112px,
-    width: 34px,
-    height: 34px,
+    left: 103px,
+    top: 53px,
+    width: 47px,
     corner-radius: 9px,
     overrides: [insert(compassSwapIcon, after = .nil)],
 
     compassSwapIcon = frame : overlay.swapIcon {
+      left: 0px,
+      top: 0px
+    }
+  }
+
+  compassRight = frame : compassButton {
+    left: 159px,
+    top: 53px,
+    overrides: [insert(compassRightIcon, after = .nil)],
+
+    compassRightIcon = frame : overlay.splitIconRight {
       left: 0px,
       top: 0px
     }
@@ -675,5 +751,63 @@ stripChip = frame {
     font-size: 15,
     font-family: "SF Pro",
     font-style: "Semibold"
+  }
+}
+
+// The five drop zones of a window, matching where nanopress already splits: a band along each edge, the middle stacks
+zoneMap = frame {
+  left: 1200px,
+  top: 1700px,
+  width: 470px,
+  height: 524px,
+  children: [
+    zoneMiddle,
+    zoneLeftIcon,
+    zoneRightIcon,
+    zoneTopIcon,
+    zoneBottomIcon,
+    zoneMiddleIcon
+  ],
+
+  zoneMiddle = frame {
+    left: 141px,
+    top: 157px,
+    width: 188px,
+    height: 210px,
+    opacity: 0.7,
+    fill: rgb(100%, 100%, 100%, 35%),
+    border: {color: colorTokens.colors.accent, width: 1.5px, dash: [5px, 4px]},
+    corner-radius: 10px,
+    corner-smoothing: 0.6
+  }
+
+  zoneLeftIcon = frame : overlay.splitIconLeft {
+    left: 60px,
+    top: 254px,
+    opacity: 0.8
+  }
+
+  zoneRightIcon = frame : overlay.splitIconRight {
+    left: 390px,
+    top: 254px,
+    opacity: 0.5
+  }
+
+  zoneTopIcon = frame : overlay.splitIconUp {
+    left: 225px,
+    top: 70px,
+    opacity: 0.5
+  }
+
+  zoneBottomIcon = frame : overlay.splitIcon {
+    left: 225px,
+    top: 440px,
+    opacity: 0.5
+  }
+
+  zoneMiddleIcon = frame : overlay.stackIcon {
+    left: 225px,
+    top: 253px,
+    opacity: 0.5
   }
 }

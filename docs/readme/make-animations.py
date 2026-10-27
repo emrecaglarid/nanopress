@@ -313,11 +313,7 @@ def drag_frames():
                 cur = (lerp(cur[0], 760, ease_io((i - 122) / 24)), lerp(cur[1], 470, ease_io((i - 122) / 24)))
         cursor(img, cur, pressed=dragging)
         frames.append(img)
-    # Fade back to the start so the loop doesn't jump
-    first = frames[0]
-    for k in range(10):
-        frames.append(Image.blend(frames[-1], first, (k + 1) / 10))
-    return frames
+    return loop_back(frames)
 
 # MARK: Tabs
 
@@ -464,7 +460,7 @@ def tabs_frames():
             draw_menu(img, menu, highlighted, alpha=min(255, (i - 110 + 1) * 64))
         cursor(img, cur, pressed=i in (20, 21, 62, 63, 108, 109, 140, 141))
         frames.append(img)
-    return frames
+    return loop_back(frames)
 
 # MARK: Menu bar panel
 
@@ -646,7 +642,7 @@ def panel_frames():
                 lifted_tile(img, drag[0], drag[1], cur)
         cursor(img, cur, pressed=i in (20, 21) or (46 <= i < 84) or (110 <= i < 142))
         frames.append(img)
-    return frames
+    return loop_back(frames)
 
 
 # MARK: Auto-arrange
@@ -783,11 +779,11 @@ def appearance_frames():
     sizes = [('None', 0), ('Small', 6), ('Medium', 12), ('Large', 20)]
 
     # A Settings window floating over the windows
-    SW, SH = 380, 150
+    SW, SH = 380, 166
     SX, SY = (W - SW) / 2, H - SH - 40
     seg_w = (SW - 32) / 4
     seg = [(SX + 16 + i * seg_w, SY + 52, seg_w, 26) for i in range(4)]
-    sw = [(SX + 16 + i * 40 + 13, SY + 118) for i in range(len(swatches))]
+    sw = [(SX + 16 + i * 40 + 17, SY + 134) for i in range(len(swatches))]
 
     def settings(img, spacing, background):
         rect = (SX, SY, SW, SH)

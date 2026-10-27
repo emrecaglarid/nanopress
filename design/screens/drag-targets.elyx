@@ -1,0 +1,679 @@
+import "../tokens/colors.elyx" as colorTokens
+import "../components/drop-overlay.elyx" as overlay
+
+// Proposal: visible drop targets while dragging a window, instead of invisible zones, ⌥ and Tab.
+// - A compass on the window under the cursor: four arrows to split it, the middle to stack, a swap button
+// - Targets at the screen edges for a whole side of the screen
+// - Every window shows a faint tab bar with a slot to stack into
+// - The top edge of the screen opens a strip of workspaces
+// Dropping anywhere else puts the window back where it was
+// MARK: Split
+// Ghostty is dragged over Dia, onto the left arrow: it'll take Dia's left half
+dragSplit = frame {
+  left: 40px,
+  top: 40px,
+  width: 960px,
+  height: 540px,
+  fill: colorTokens.colors.wallpaper,
+  overflow: .visible,
+  children: [
+    splitDia,
+    splitSlack,
+    splitOrigin,
+    splitDragged,
+    splitLanding,
+    splitDiaTabs,
+    splitSlackTabs,
+    splitCompass,
+    splitEdges,
+    splitLabel
+  ],
+
+  splitDia = frame : mockWindow {
+    left: 8px,
+    top: 8px,
+    width: 470px,
+    height: 490px
+  }
+
+  splitSlack = frame : mockWindow {
+    left: 486px,
+    top: 8px,
+    width: 466px,
+    height: 224px,
+
+    mockTitleBar {
+      mockAppIcon {
+        fill[0].linear-gradient.stops[0].color: rgb(44.31%, 21.18%, 47.45%),
+        fill[0].linear-gradient.stops[1].color: rgb(29.02%, 10.98%, 31.37%)
+      }
+
+      mockAppName {
+        contents: "Slack"
+      }
+    }
+  }
+
+  // Where Ghostty was
+  splitOrigin = frame : overlay.originRegion {
+    left: 486px,
+    top: 274px,
+    width: 466px,
+    height: 258px
+  }
+
+  splitLanding = frame : overlay.landingRegion {
+    left: 8px,
+    top: 8px,
+    width: 231px,
+    height: 490px
+  }
+
+  splitDiaTabs = frame : stackSlotBar {
+    left: 8px,
+    top: 506px
+  }
+
+  splitSlackTabs = frame : stackSlotBar {
+    left: 486px,
+    top: 240px,
+
+    slotOwnTab {
+      slotOwnName {
+        contents: "Slack"
+      }
+    }
+  }
+
+  splitCompass = frame : compass {
+    left: 171px,
+    top: 181px,
+
+    compassLeft {
+      fill[0].color: colorTokens.colors.landing-fill,
+      border[0].color: colorTokens.colors.accent,
+      border[0].width: 2px
+    }
+  }
+
+  splitEdges = frame : screenEdges {
+    left: 0px,
+    top: 0px
+  }
+
+  splitLabel = frame : targetLabel {
+    left: 172px,
+    top: 340px
+  }
+
+  splitDragged = frame : draggedWindow {
+    left: 120px,
+    top: 214px
+  }
+}
+
+// MARK: Stack
+// On the middle button: Ghostty joins Dia as a tab
+dragStack = frame {
+  left: 1200px,
+  top: 40px,
+  width: 960px,
+  height: 540px,
+  fill: colorTokens.colors.wallpaper,
+  overflow: .visible,
+  children: [
+    stackDia,
+    stackSlack,
+    stackOrigin,
+    stackDragged,
+    stackLanding,
+    stackDiaTabs,
+    stackSlackTabs,
+    stackCompass,
+    stackEdges,
+    stackLabel
+  ],
+
+  stackDia = frame : mockWindow {
+    left: 8px,
+    top: 8px,
+    width: 470px,
+    height: 490px
+  }
+
+  stackSlack = frame : mockWindow {
+    left: 486px,
+    top: 8px,
+    width: 466px,
+    height: 224px,
+
+    mockTitleBar {
+      mockAppIcon {
+        fill[0].linear-gradient.stops[0].color: rgb(44.31%, 21.18%, 47.45%),
+        fill[0].linear-gradient.stops[1].color: rgb(29.02%, 10.98%, 31.37%)
+      }
+
+      mockAppName {
+        contents: "Slack"
+      }
+    }
+  }
+
+  stackOrigin = frame : overlay.originRegion {
+    left: 486px,
+    top: 274px,
+    width: 466px,
+    height: 258px
+  }
+
+  stackLanding = frame : overlay.landingRegion {
+    left: 8px,
+    top: 8px,
+    width: 470px,
+    height: 490px
+  }
+
+  // The slot fills in: this is where the new tab goes
+  stackDiaTabs = frame : stackSlotBarActive {
+    left: 8px,
+    top: 506px
+  }
+
+  stackSlackTabs = frame : stackSlotBar {
+    left: 486px,
+    top: 240px,
+
+    slotOwnTab {
+      slotOwnName {
+        contents: "Slack"
+      }
+    }
+  }
+
+  stackCompass = frame : compass {
+    left: 171px,
+    top: 181px,
+
+    compassMiddle {
+      fill[0].color: colorTokens.colors.landing-fill,
+      border[0].color: colorTokens.colors.accent,
+      border[0].width: 2px
+    }
+  }
+
+  stackEdges = frame : screenEdges {
+    left: 0px,
+    top: 0px
+  }
+
+  stackLabel = frame : targetLabel {
+    left: 172px,
+    top: 340px,
+
+    targetText {
+      contents: "Stack with Dia"
+    }
+  }
+
+  stackDragged = frame : draggedWindow {
+    left: 222px,
+    top: 248px
+  }
+}
+
+// MARK: Workspace
+// At the top edge, the workspaces slide down: dropping on 2 moves Ghostty there
+dragWorkspace = frame {
+  left: 2360px,
+  top: 40px,
+  width: 960px,
+  height: 540px,
+  fill: colorTokens.colors.wallpaper,
+  overflow: .visible,
+  children: [
+    workspaceDia,
+    workspaceSlack,
+    workspaceOrigin,
+    workspaceDragged,
+    workspaceStrip,
+    workspaceLabel
+  ],
+
+  workspaceDia = frame : mockWindow {
+    left: 8px,
+    top: 8px,
+    width: 470px,
+    height: 524px
+  }
+
+  workspaceSlack = frame : mockWindow {
+    left: 486px,
+    top: 8px,
+    width: 466px,
+    height: 258px,
+
+    mockTitleBar {
+      mockAppIcon {
+        fill[0].linear-gradient.stops[0].color: rgb(44.31%, 21.18%, 47.45%),
+        fill[0].linear-gradient.stops[1].color: rgb(29.02%, 10.98%, 31.37%)
+      }
+
+      mockAppName {
+        contents: "Slack"
+      }
+    }
+  }
+
+  workspaceOrigin = frame : overlay.originRegion {
+    left: 486px,
+    top: 274px,
+    width: 466px,
+    height: 258px
+  }
+
+  workspaceStrip = frame : workspaceDropStrip {
+    left: 362px,
+    top: 12px
+  }
+
+  workspaceLabel = frame : targetLabel {
+    left: 380px,
+    top: 70px,
+
+    targetText {
+      contents: "Move to workspace 2"
+    }
+  }
+
+  workspaceDragged = frame : draggedWindow {
+    left: 420px,
+    top: 34px
+  }
+}
+
+// MARK: Parts
+// A window on the mock desktop: title bar with its app, then content
+mockWindow = frame {
+  left: 40px,
+  top: 700px,
+  width: 470px,
+  height: 300px,
+  fill: colorTokens.colors.window,
+  border: colorTokens.colors.window-border,
+  corner-radius: 12px,
+  corner-smoothing: 0.6,
+  children: mockTitleBar,
+
+  mockTitleBar = frame {
+    left: 0px,
+    top: 0px,
+    width: 100%,
+    height: 34px,
+    layout: {align-items: .center, item-gap: 8px},
+    fill: colorTokens.colors.window-chrome,
+    corner-radius: [12px, 12px, 0px, 0px],
+    padding: [0px, 14px],
+    children: [mockAppIcon, mockAppName],
+
+    mockAppIcon = frame {
+      width: 16px,
+      height: 16px,
+      fill: {
+        linear-gradient: {
+          angle: 180deg,
+          stops: [stop(0%, rgb(100%, 80%, 30%)), stop(100%, rgb(96%, 66%, 10%))]
+        }
+      },
+      corner-radius: 4px
+    }
+
+    mockAppName = text {
+      fill: colorTokens.colors.primary,
+      contents: "Dia",
+      font-size: 12,
+      font-family: "SF Pro",
+      font-style: "Semibold"
+    }
+  }
+}
+
+// The window being dragged, small so that the targets under it stay visible
+draggedWindow = frame : mockWindow {
+  left: 600px,
+  top: 700px,
+  width: 150px,
+  height: 96px,
+  opacity: 0.92,
+  shadow[0].drop-shadow.blur-radius: 24px,
+  shadow[0].drop-shadow.color: colorTokens.colors.shadow-far,
+  shadow[0].drop-shadow.offset: [0px, 12px],
+
+  mockTitleBar {
+    mockAppIcon {
+      fill[0].linear-gradient.stops[0].color: rgb(25.88%, 27.06%, 30.2%),
+      fill[0].linear-gradient.stops[1].color: rgb(10.98%, 11.37%, 12.94%)
+    }
+
+    height: 26px,
+
+    mockAppName {
+      contents: "Ghostty"
+    }
+
+    padding-left: 10px,
+    padding-right: 10px
+  }
+}
+
+// One button of the compass
+compassButton = frame {
+  left: 800px,
+  top: 700px,
+  width: 44px,
+  height: 44px,
+  layout: {justify-content: .center, align-items: .center},
+  fill: colorTokens.colors.material,
+  border: colorTokens.colors.card-border,
+  shadow: {
+    drop-shadow: {
+      color: colorTokens.colors.shadow-far,
+      offset: point(0px, 4px),
+      blur-radius: 10px
+    }
+  },
+  filter: {type: .background-blur, radius: 20px},
+  corner-radius: 11px,
+  corner-smoothing: 0.6
+}
+
+// On the window under the cursor: up, left, stack, right, down, and swap in the corner. Each button previews its drop
+compass = frame {
+  left: 900px,
+  top: 700px,
+  width: 150px,
+  height: 150px,
+  overflow: .visible,
+  children: [
+    compassUp,
+    compassLeft,
+    compassMiddle,
+    compassRight,
+    compassDown,
+    compassSwap
+  ],
+
+  compassUp = frame : compassButton {
+    left: 53px,
+    top: 0px,
+    overrides: [insert(compassUpIcon, after = .nil)],
+
+    compassUpIcon = frame : overlay.splitIconUp {
+      left: 0px,
+      top: 0px
+    }
+  }
+
+  compassLeft = frame : compassButton {
+    left: 0px,
+    top: 53px,
+    overrides: [insert(compassLeftIcon, after = .nil)],
+
+    compassLeftIcon = frame : overlay.splitIconLeft {
+      left: 0px,
+      top: 0px
+    }
+  }
+
+  compassMiddle = frame : compassButton {
+    left: 53px,
+    top: 53px,
+    overrides: [insert(compassMiddleIcon, after = .nil)],
+
+    compassMiddleIcon = frame : overlay.stackIcon {
+      left: 0px,
+      top: 0px
+    }
+  }
+
+  compassRight = frame : compassButton {
+    left: 106px,
+    top: 53px,
+    overrides: [insert(compassRightIcon, after = .nil)],
+
+    compassRightIcon = frame : overlay.splitIconRight {
+      left: 0px,
+      top: 0px
+    }
+  }
+
+  compassDown = frame : compassButton {
+    left: 53px,
+    top: 106px,
+    overrides: [insert(compassDownIcon, after = .nil)],
+
+    compassDownIcon = frame : overlay.splitIcon {
+      left: 0px,
+      top: 0px
+    }
+  }
+
+  // Swap gets the corner: used less, and away from the arrows
+  compassSwap = frame : compassButton {
+    left: 112px,
+    top: 112px,
+    width: 34px,
+    height: 34px,
+    corner-radius: 9px,
+    overrides: [insert(compassSwapIcon, after = .nil)],
+
+    compassSwapIcon = frame : overlay.swapIcon {
+      left: 0px,
+      top: 0px
+    }
+  }
+}
+
+// What the hovered target does
+targetLabel = frame {
+  left: 1100px,
+  top: 700px,
+  width: .auto,
+  height: 30px,
+  layout: {align-items: .center},
+  fill: rgb(12%, 12%, 14%, 88%),
+  corner-radius: 100px,
+  padding: [0px, 14px],
+  children: targetText,
+
+  targetText = text {
+    fill: .white,
+    contents: "Left of Dia",
+    font-size: 13,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+}
+
+// Thin targets in the middle of each screen edge, for a whole side of the screen
+screenEdges = frame {
+  left: 40px,
+  top: 1100px,
+  width: 960px,
+  height: 540px,
+  children: [edgeLeft, edgeRight, edgeTop, edgeBottom],
+
+  edgeLeft = frame : edgeTarget {
+    left: 0px,
+    top: 222px,
+    width: 8px,
+    height: 96px
+  }
+
+  edgeRight = frame : edgeTarget {
+    left: 952px,
+    top: 222px,
+    width: 8px,
+    height: 96px
+  }
+
+  edgeTop = frame : edgeTarget {
+    left: 432px,
+    top: 0px,
+    width: 96px,
+    height: 8px
+  }
+
+  edgeBottom = frame : edgeTarget {
+    left: 432px,
+    top: 532px,
+    width: 96px,
+    height: 8px
+  }
+}
+
+edgeTarget = frame {
+  left: 1300px,
+  top: 700px,
+  width: 8px,
+  height: 96px,
+  opacity: 0.55,
+  fill: colorTokens.colors.accent,
+  corner-radius: 100px
+}
+
+// Under every window while dragging: its own tab and a dashed slot to stack into
+stackSlotBar = frame {
+  left: 40px,
+  top: 1700px,
+  width: .auto,
+  height: 26px,
+  opacity: 0.85,
+  layout: {item-gap: 3px},
+  children: [slotOwnTab, slotNew],
+
+  slotOwnTab = frame {
+    width: .auto,
+    height: 26px,
+    layout: {align-items: .center, item-gap: 6px},
+    fill: rgb(92.5%, 92.5%, 93.7%),
+    corner-radius: [8px, 3px, 3px, 8px],
+    padding: [0px, 10px],
+    children: slotOwnName,
+
+    slotOwnName = text {
+      fill: colorTokens.colors.secondary,
+      contents: "Dia",
+      font-size: 11,
+      font-family: "SF Pro",
+      font-style: "Semibold"
+    }
+  }
+
+  slotNew = frame {
+    width: 96px,
+    height: 26px,
+    layout: {justify-content: .center, align-items: .center},
+    fill: rgb(100%, 100%, 100%, 25%),
+    border: {color: rgb(100%, 100%, 100%, 85%), width: 1.5px, dash: [4px, 3px]},
+    corner-radius: [3px, 8px, 8px, 3px],
+    children: slotNewText,
+
+    slotNewText = text {
+      fill: .white,
+      contents: "Stack here",
+      font-size: 11,
+      font-family: "SF Pro",
+      font-style: "Medium"
+    }
+  }
+}
+
+// The cursor is on it: the slot becomes the new window's tab
+@variant
+stackSlotBarActive = frame : stackSlotBar {
+  left: 300px,
+  top: 1700px,
+  opacity: 1,
+
+  slotNew {
+    fill[0].color: colorTokens.colors.accent,
+    border[0].color: colorTokens.colors.accent,
+
+    slotNewText {
+      contents: "Ghostty"
+    }
+  }
+}
+
+// Slides down from the top edge while dragging there
+workspaceDropStrip = frame {
+  left: 600px,
+  top: 1700px,
+  width: .auto,
+  height: .auto,
+  layout: {align-items: .center, item-gap: 8px},
+  fill: colorTokens.colors.material,
+  border: colorTokens.colors.card-border,
+  shadow: {
+    drop-shadow: {
+      color: colorTokens.colors.shadow-far,
+      offset: point(0px, 8px),
+      blur-radius: 20px
+    }
+  },
+  filter: {type: .background-blur, radius: 30px},
+  corner-radius: 14px,
+  padding: 8px,
+  children: [stripOne, stripTwo, stripThree],
+
+  stripOne = frame : stripChip {
+    left: 0px,
+    top: 0px,
+
+    stripNumber {
+      contents: "1"
+    }
+  }
+
+  stripTwo = frame : stripChip {
+    left: 0px,
+    top: 0px,
+    fill[0].color: colorTokens.colors.accent,
+
+    stripNumber {
+      fill[0].color: colorTokens.colors.on-accent,
+      contents: "2"
+    }
+  }
+
+  stripThree = frame : stripChip {
+    left: 0px,
+    top: 0px,
+    border[0].dash: [4px, 3px],
+
+    stripNumber {
+      fill[0].color: colorTokens.colors.tertiary,
+      contents: "3"
+    }
+  }
+}
+
+stripChip = frame {
+  left: 900px,
+  top: 1700px,
+  width: 64px,
+  height: 40px,
+  layout: {justify-content: .center, align-items: .center},
+  fill: colorTokens.colors.well-fill,
+  border: colorTokens.colors.separator,
+  corner-radius: 8px,
+  children: stripNumber,
+
+  stripNumber = text {
+    fill: colorTokens.colors.secondary,
+    contents: "2",
+    font-size: 15,
+    font-family: "SF Pro",
+    font-style: "Semibold"
+  }
+}

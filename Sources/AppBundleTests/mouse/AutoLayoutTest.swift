@@ -194,4 +194,26 @@ final class AutoLayoutTest: XCTestCase {
 
         assertEquals(arrangementLabel(sim), "2 visible, 2 stacked")
     }
+
+    func testManyWindowsGetAFewTilesAndStacks() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        for id: UInt32 in 0 ..< 10 { TestWindow.new(id: id, parent: root) }
+
+        guard let best = bestArrangements(of: workspace, limit: 1).first else { return XCTFail("No arrangement") }
+        let tiles = arrangedTiles(best, on: workspace)
+        XCTAssertLessThanOrEqual(tiles.count, 5)
+        assertEquals(tiles.map(\.stackCount).reduce(0, +), 10)
+    }
+
+    func testWindowsOfAKindStackTogether() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        let windows = (0 ..< 6).map { TestWindow.new(id: UInt32($0), parent: root) as Window }
+
+        let (shown, stacks) = assignTiles(windows, count: 3)
+        assertEquals(shown.map(\.windowId), [0, 1, 2])
+        // Test windows have no app, so they're all one kind: the rest stack behind the first tile of that kind
+        assertEquals(stacks[0]?.map(\.windowId), [3, 4, 5])
+    }
 }

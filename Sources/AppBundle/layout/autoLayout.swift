@@ -18,35 +18,86 @@ func arrangements(of workspace: Workspace, showing count: Int, limit: Int) -> [S
     let shown = Array(windows.prefix(count))
     let overflow = Array(windows.dropFirst(count))
     let area = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
+    let stacks = shown.last.map { [$0.windowId: overflow] } ?? [:]
     return arrangeShapes(shown, area: area)
         .prefix(limit)
-        .map { buildArrangement($0, shown: shown, overflow: overflow, area: area) }
+        .map { buildArrangement($0, shown: shown, stacks: stacks, area: area) }
 }
 
-/// The best layouts for any number of windows on screen, ranked together, so that nobody has to pick a count first.
-/// A window that has to be stacked to make room costs about as much as a cramped tile, so showing everything wins
-/// when it fits and stacking wins when it doesn't
+/// The best layouts for the workspace, one per number of tiles, ranked together, so that nobody has to pick a count.
+/// A few roomy tiles beat many small ones: the tiles go to different kinds of apps, and the other windows are stacked
+/// behind a tile of their own app, or else of their own kind, so that browsers stack with browsers and chats with chats
 @MainActor
 func bestArrangements(of workspace: Workspace, limit: Int) -> [SimNode] {
     let windows = windowsByRecency(workspace.rootTilingContainer)
     guard !windows.isEmpty else { return [] }
     let area = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
-    var scored: [(score: CGFloat, columns: [[Window]], shown: [Window], overflow: [Window])] = []
-    for count in arrangeCounts(of: workspace).reversed() {
-        let shown = Array(windows.prefix(count))
-        let overflow = Array(windows.dropFirst(count))
-        for columns in arrangeShapes(shown, area: area).prefix(3) {
-            scored.append((misfit(columns, area: area) + stackedWindowCost * CGFloat(overflow.count), columns, shown, overflow))
+    let mostTiles = min(windows.count, tileCapacity(of: workspace.workspaceMonitor), 5)
+    var scored: [(score: CGFloat, columns: [[Window]], shown: [Window], stacks: [UInt32: [Window]])] = []
+    for count in 1 ... mostTiles {
+        let (shown, stacks) = assignTiles(windows, count: count)
+        guard let columns = arrangeShapes(shown, area: area).first else { continue }
+        var score = misfit(columns, area: area) + perTileCost * CGFloat(count)
+        for (topId, behind) in stacks {
+            let top = shown.first { $0.windowId == topId }
+            for window in behind {
+                score += stackedWindowCost
+                // A stack that mixes kinds of apps is a drawer of odds and ends
+                if let top, windowKind(window) != windowKind(top) { score += mixedStackCost }
+            }
         }
+        scored.append((score, columns, shown, stacks))
     }
-    // Stable: on a tie, more windows on screen wins, since the counts go from most to fewest
-    return scored.enumerated()
-        .sorted { ($0.element.score, $0.offset) < ($1.element.score, $1.offset) }
+    return scored.sorted { $0.score < $1.score }
         .prefix(limit)
-        .map { buildArrangement($0.element.columns, shown: $0.element.shown, overflow: $0.element.overflow, area: area) }
+        .map { buildArrangement($0.columns, shown: $0.shown, stacks: $0.stacks, area: area) }
 }
 
-private let stackedWindowCost: CGFloat = 0.5
+/// Every tile costs a little focus, a hidden window a little more, so that windows are shown while they fit. Up to
+/// five tiles: past that, windows of a kind share one
+private let perTileCost: CGFloat = 0.08
+private let stackedWindowCost: CGFloat = 0.15
+private let mixedStackCost: CGFloat = 0.3
+
+/// Which windows get a tile, most recent first, one per kind of app while there are kinds to go round. The rest go
+/// behind the tile of the same app, else the same kind, else the tile with the fewest windows behind it
+@MainActor
+func assignTiles(_ windows: [Window], count: Int) -> (shown: [Window], stacks: [UInt32: [Window]]) {
+    var shown: [Window] = []
+    for window in windows where shown.count < count && !shown.contains(where: { windowKind($0) == windowKind(window) }) {
+        shown.append(window)
+    }
+    for window in windows where shown.count < count && !shown.contains(where: { $0 === window }) {
+        shown.append(window)
+    }
+    // Keep recency order, so that the most recent window still leads
+    shown = windows.filter { window in shown.contains { $0 === window } }
+    var stacks: [UInt32: [Window]] = [:]
+    for window in windows where !shown.contains(where: { $0 === window }) {
+        let tile = shown.first { $0.app.rawAppBundleId != nil && $0.app.rawAppBundleId == window.app.rawAppBundleId }
+            ?? shown.first { windowKind($0) == windowKind(window) }
+            ?? shown.min { (stacks[$0.windowId]?.count ?? 0) < (stacks[$1.windowId]?.count ?? 0) }
+        if let tile { stacks[tile.windowId, default: []].append(window) }
+    }
+    return (shown, stacks)
+}
+
+/// Apps that do the same job, for grouping: browsers, terminals and editors, chats. Else the app's own category
+@MainActor
+private func windowKind(_ window: Window) -> String {
+    let bundleId = window.app.rawAppBundleId ?? ""
+    if browserBundleIds.contains(bundleId) { return "browser" }
+    if terminalBundleIds.contains(bundleId) { return "terminal" }
+    return appCategory(of: window) ?? bundleId
+}
+
+private let browserBundleIds: Set<String> = [
+    "company.thebrowser.dia", "company.thebrowser.Browser", "com.apple.Safari", "com.google.Chrome",
+    "org.mozilla.firefox", "com.microsoft.edgemac", "com.brave.Browser", "com.operasoftware.Opera",
+]
+private let terminalBundleIds: Set<String> = [
+    "com.mitchellh.ghostty", "com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable", "net.kovidgoyal.kitty",
+]
 
 /// What an arrangement does, for its card: "All 4 visible", "3 visible, 2 stacked"
 @MainActor
@@ -58,7 +109,7 @@ func arrangementLabel(_ sim: SimNode) -> String {
 }
 
 @MainActor
-private func buildArrangement(_ columns: [[Window]], shown: [Window], overflow: [Window], area: Rect) -> SimNode {
+private func buildArrangement(_ columns: [[Window]], shown: [Window], stacks: [UInt32: [Window]], area: Rect) -> SimNode {
     let widths = columnWidths(columns, area: area)
 
     let sim = SimNode(.workspace)
@@ -74,13 +125,13 @@ private func buildArrangement(_ columns: [[Window]], shown: [Window], overflow: 
             parent.bind(to: root, weight: width, index: INDEX_BIND_LAST)
         }
         for window in column {
-            let isStackTarget = window === shown.last && !overflow.isEmpty
+            let behind = stacks[window.windowId] ?? []
             let weight = column.count == 1 ? width : area.height / CGFloat(column.count)
             let tile: SimNode
-            if isStackTarget {
+            if !behind.isEmpty {
                 tile = SimNode(.container(parent.orientation == .h ? .v : .h, .accordion))
                 tile.bind(to: parent, weight: weight, index: INDEX_BIND_LAST)
-                for hidden in overflow { SimNode(.window(hidden.windowId)).bind(to: tile, weight: 1, index: INDEX_BIND_LAST) }
+                for hidden in behind { SimNode(.window(hidden.windowId)).bind(to: tile, weight: 1, index: INDEX_BIND_LAST) }
                 let node = SimNode(.window(window.windowId))
                 node.bind(to: tile, weight: 1, index: 0)
                 nodes[window.windowId] = node

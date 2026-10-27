@@ -133,7 +133,15 @@ func restoreSavedLayout() {
     } else if let data = try? Data(contentsOf: legacyLayoutUrl), let layout = try? JSONDecoder().decode(SavedLayout.self, from: data) {
         setupLayouts = [setup: layout]
     }
-    if let layout = setupLayouts[setup] { applySavedLayout(layout) }
+    if let layout = setupLayouts[setup] {
+        applySavedLayout(layout)
+    } else {
+        // Nothing to come back to, like right after installing: start from the best suggestion instead of whatever
+        // order the windows were found in
+        for workspace in Workspace.all where !workspace.rootTilingContainer.allLeafWindowsRecursive.isEmpty {
+            if let best = bestArrangements(of: workspace, limit: 1).first { applyArrangement(best, to: workspace) }
+        }
+    }
 }
 
 /// Called on every refresh, after the workspaces are assigned to the screens. When the screens changed since the

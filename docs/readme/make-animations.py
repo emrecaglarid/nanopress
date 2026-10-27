@@ -38,6 +38,8 @@ APPS = {
     'Ghostty': ((40, 42, 48), 'zsh'),
     'Mail': ((30, 120, 245), 'Inbox'),
     'Notes': ((242, 190, 40), 'Ideas'),
+    'Safari': ((10, 132, 255), 'Apple'),
+    'Warp': ((88, 70, 210), '~/code'),
 }
 
 def shadow(img, rect, radius=14, blur=18, alpha=90, offset=8):
@@ -129,6 +131,74 @@ def save(frames, name):
                     '-vf', 'split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5',
                     '-loop', '0', out], check=True)
     print(out, os.path.getsize(out) // 1024, 'KB')
+
+MB = 26                             # menu bar
+ICON_X = W - 128                    # nanopress's icon in it
+
+def menubar(img):
+    layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    d.rectangle([0, 0, W * S, MB * S], fill=(245, 245, 247, 200))
+    d.text((18 * S, MB / 2 * S), '', font=font(14, 500), fill=(30, 30, 34, 255), anchor='lm')
+    d.text((44 * S, MB / 2 * S), 'Finder', font=font(13, 700), fill=(30, 30, 34, 255), anchor='lm')
+    # nanopress's icon: three tiles with space between them, the moving one filled
+    x, y = ICON_X * S, (MB / 2 - 7) * S
+    d.rounded_rectangle([x, y, x + 8 * S, y + 14 * S], 2 * S, outline=(30, 30, 34, 255), width=int(1.5 * S))
+    d.rounded_rectangle([x + 10 * S, y, x + 18 * S, y + 6 * S], 2 * S, outline=(30, 30, 34, 255), width=int(1.5 * S))
+    d.rounded_rectangle([x + 10 * S, y + 8 * S, x + 18 * S, y + 14 * S], 2.5 * S, fill=(30, 30, 34, 255))
+    d.text(((W - 70) * S, MB / 2 * S), '9:41', font=font(13, 500), fill=(30, 30, 34, 255), anchor='lm')
+    img.paste(layer, (0, 0), layer)
+
+def gradient(top, bottom):
+    img = Image.new('RGB', (W * S, H * S))
+    d = ImageDraw.Draw(img)
+    for y in range(H * S):
+        t = y / (H * S)
+        d.line([(0, y), (W * S, y)], fill=tuple(int(lerp(a, b, t)) for a, b in zip(top, bottom)))
+    return img
+
+# A stack's strip of tabs, names only: dark glass as wide as its tabs, a pill on the window in front
+TAB_H = 28
+def glass_strip(img, x, y, order, front, alpha=255):
+    f = font(11, 600)
+    probe = ImageDraw.Draw(Image.new('RGB', (10, 10)))
+    rects, cx = [], x
+    for app in order:
+        w = 10 + 16 + 6 + probe.textlength(app, font=f) / S + 10
+        rects.append((app, (cx, y, w, TAB_H)))
+        cx += w + 2
+    X0, Y0, X1, Y1 = int(x * S), int(y * S), int(cx * S), int((y + TAB_H) * S)
+    under = img.crop((X0, Y0, X1, Y1)).filter(ImageFilter.GaussianBlur(10 * S))
+    under = Image.blend(under, Image.new('RGB', under.size, (20, 20, 24)), 0.45)
+    mask = Image.new('L', under.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, under.size[0], under.size[1]], 9 * S, fill=alpha)
+    img.paste(under, (X0, Y0), mask)
+    layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+    d = ImageDraw.Draw(layer)
+    for app, (rx, ry, rw, rh) in rects:
+        X, Y, Wd, Hd = sc((rx, ry, rw, rh))
+        if app == front:
+            d.rounded_rectangle([X, Y, X + Wd, Y + Hd], 9 * S, fill=(245, 245, 247, 255))
+        ix = X + 10 * S
+        d.rounded_rectangle([ix, Y + Hd / 2 - 8 * S, ix + 16 * S, Y + Hd / 2 + 8 * S], 4 * S, fill=APPS[app][0] + (255,))
+        d.text((ix + 22 * S, Y + Hd / 2), app, font=f, fill=((20, 20, 24) if app == front else (225, 225, 230)) + (255,), anchor='lm')
+    if alpha < 255:
+        layer.putalpha(layer.getchannel('A').point(lambda v: v * alpha // 255))
+    img.paste(layer, (0, 0), layer)
+
+def cursor_path(keys):
+    def at(i):
+        for (f1, p1), (f2, p2) in zip(keys, keys[1:]):
+            if f1 <= i <= f2:
+                t = ease_io((i - f1) / max(f2 - f1, 1))
+                return (lerp(p1[0], p2[0], t), lerp(p1[1], p2[1], t))
+        return keys[-1][1]
+    return at
+
+def loop_back(frames, n=10):
+    """Fades the last frame into the first, so that the loop doesn't jump"""
+    last, first = frames[-1], frames[0]
+    return frames + [Image.blend(last, first, (k + 1) / n) for k in range(n)]
 
 # MARK: Drag and drop
 
@@ -399,7 +469,6 @@ def tabs_frames():
 # MARK: Menu bar panel
 
 def panel_frames():
-    MB = 26                         # menu bar
     M, G = 12, 10
     top = MB + M
     area_h = H - top - M
@@ -427,7 +496,7 @@ def panel_frames():
     # The panel, under its menu bar icon
     PW = 330
     PX, PY = W - M - PW, MB + 6
-    icon_x = W - 128
+    icon_x = ICON_X
     map_x, map_y = PX + 14, PY + 52
     map_w = PW - 28
     scale = map_w / W
@@ -441,20 +510,6 @@ def panel_frames():
         return ((point[0] - map_x) / scale, (point[1] - map_y) / scale + MB)
 
     chips = [(PX + 120 + i * 40, PY + 14, 34, 22) for i in range(3)]
-
-    def menubar(img):
-        layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
-        d = ImageDraw.Draw(layer)
-        d.rectangle([0, 0, W * S, MB * S], fill=(245, 245, 247, 200))
-        d.text((18 * S, MB / 2 * S), '', font=font(14, 500), fill=(30, 30, 34, 255), anchor='lm')
-        d.text((44 * S, MB / 2 * S), 'Finder', font=font(13, 700), fill=(30, 30, 34, 255), anchor='lm')
-        # nanopress's icon: three tiles with space between them, the moving one filled
-        x, y = icon_x * S, (MB / 2 - 7) * S
-        d.rounded_rectangle([x, y, x + 8 * S, y + 14 * S], 2 * S, outline=(30, 30, 34, 255), width=int(1.5 * S))
-        d.rounded_rectangle([x + 10 * S, y, x + 18 * S, y + 6 * S], 2 * S, outline=(30, 30, 34, 255), width=int(1.5 * S))
-        d.rounded_rectangle([x + 10 * S, y + 8 * S, x + 18 * S, y + 14 * S], 2.5 * S, fill=(30, 30, 34, 255))
-        d.text(((W - 70) * S, MB / 2 * S), '9:41', font=font(13, 500), fill=(30, 30, 34, 255), anchor='lm')
-        img.paste(layer, (0, 0), layer)
 
     class Blend:
         """Draws each shape on its own layer and blends it in, so that see-through fills tint what's under them"""
@@ -593,8 +648,218 @@ def panel_frames():
         frames.append(img)
     return frames
 
+
+# MARK: Auto-arrange
+
+def arrange_frames():
+    M, G = 12, 10
+    top = MB + M
+    area = (M, top, W - 2 * M, H - top - M)
+    apps = ['Dia', 'Safari', 'Ghostty', 'Warp', 'Slack', 'Notes']
+    # Before: six thin columns, one per window
+    cw = (area[2] - G * 5) / 6
+    before = {app: (M + i * (cw + G), top, cw, area[3]) for i, app in enumerate(apps)}
+
+    # The options, as tiles of stacks: (rect as fractions of the area, windows, front)
+    def tiles(spec):
+        out = []
+        for (fx, fy, fw, fh), order in spec:
+            x = area[0] + fx * (area[2] + G)
+            y = area[1] + fy * (area[3] + G)
+            out.append(((x, y, fw * (area[2] + G) - G, fh * (area[3] + G) - G), order))
+        return out
+    options = [
+        ('3 visible, 3 stacked', tiles([((0, 0, 0.55, 1), ['Dia', 'Safari']), ((0.55, 0, 0.45, 0.5), ['Ghostty', 'Warp']), ((0.55, 0.5, 0.45, 0.5), ['Slack', 'Notes'])])),
+        ('2 visible, 4 stacked', tiles([((0, 0, 0.5, 1), ['Dia', 'Safari', 'Notes']), ((0.5, 0, 0.5, 1), ['Ghostty', 'Warp', 'Slack'])])),
+        ('4 visible, 2 stacked', tiles([((0, 0, 0.5, 0.5), ['Dia', 'Safari']), ((0.5, 0, 0.5, 0.5), ['Ghostty', 'Warp']), ((0, 0.5, 0.5, 0.5), ['Slack']), ((0.5, 0.5, 0.5, 0.5), ['Notes'])])),
+    ]
+    picked = options[0][1]
+    # So that each stack's front window is drawn on top
+    BACK_TO_FRONT = ['Safari', 'Warp', 'Notes', 'Dia', 'Ghostty', 'Slack']
+
+    def window_rects(tile_list):
+        """Every window's rect in an option: a stack's windows share a spot above its tabs"""
+        out = {}
+        for rect, order in tile_list:
+            x, y, w, h = rect
+            for app in order:
+                out[app] = (x, y, w, h - TAB_H - 4) if len(order) > 1 else rect
+        return out
+    after = window_rects(picked)
+
+    # The panel, under its menu bar icon
+    PW = 360
+    PX, PY = W - M - PW, MB + 6
+    map_x, map_y, map_w = PX + 14, PY + 52, PW - 28
+    scale = map_w / W
+    map_h = (H - MB) * scale
+    card_w = (PW - 28 - 2 * 8) / 3
+    thumb_h = card_w * (H - MB) / W
+    cards = [(PX + 14 + i * (card_w + 8), map_y + map_h + 36, card_w, thumb_h + 26) for i in range(3)]
+    panel_h = cards[0][1] + cards[0][3] + 10 - PY
+
+    def to(rect, ox, oy, k):
+        x, y, w, h = rect
+        return (ox + x * k, oy + (y - MB) * k, w * k, h * k)
+
+    def tile(d, rect, color, outline=None):
+        x, y, w, h = sc(rect)
+        d.rounded_rectangle([x + S / 2, y + S / 2, x + w - S / 2, y + h - S / 2], 3 * S, fill=(220, 220, 226, 255), outline=outline, width=S)
+        size = min(18 * S, w * 0.4, h * 0.4)
+        d.rounded_rectangle([x + w / 2 - size / 2, y + h / 2 - size / 2, x + w / 2 + size / 2, y + h / 2 + size / 2], size * 0.25, fill=color + (255,))
+
+    def panel(img, layout, hovered, alpha):
+        shadow(img, (PX, PY, PW, panel_h), radius=12, blur=20, alpha=int(120 * alpha / 255), offset=8)
+        layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer)
+        X, Y = PX * S, PY * S
+        d.rounded_rectangle([X, Y, X + PW * S, Y + panel_h * S], 12 * S, fill=(242, 242, 245, 250), outline=(205, 205, 210, 255), width=S)
+        d.text((X + 14 * S, Y + 25 * S), 'nanopress', font=font(13, 600), fill=(30, 30, 34, 255), anchor='lm')
+        d.line([X, Y + 44 * S, X + PW * S, Y + 44 * S], fill=(215, 215, 220, 255), width=S)
+        for app in BACK_TO_FRONT:
+            tile(d, to(layout[app], map_x, map_y, scale), APPS[app][0])
+        d.text((X + 14 * S, (cards[0][1] - 14) * S), 'Auto-arrange', font=font(13, 600), fill=(30, 30, 34, 255), anchor='lm')
+        for i, ((label, option), card) in enumerate(zip(options, cards)):
+            cx, cy, cw2, ch = card
+            on = hovered == i
+            if on:
+                X1, Y1, W1, H1 = sc(card)
+                d.rounded_rectangle([X1, Y1, X1 + W1, Y1 + H1], 8 * S, fill=(226, 226, 231, 255))
+            k = (cw2 - 12) / W
+            for rect, order in option:
+                tile(d, to(rect, cx + 6, cy + 6, k), APPS[order[0]][0])
+            d.text(((cx + cw2 / 2) * S, (cy + ch - 9) * S), label, font=font(10, 600 if i == 0 else 400),
+                   fill=(ACCENT if on else (110, 110, 118)) + (255,), anchor='mm')
+        if alpha < 255:
+            layer.putalpha(layer.getchannel('A').point(lambda v: v * alpha // 255))
+        img.paste(layer, (0, 0), layer)
+
+    icon = (ICON_X + 9, MB / 2)
+    first_card = (cards[0][0] + cards[0][2] / 2, cards[0][1] + cards[0][3] / 2)
+    cursor_at = cursor_path([(0, (480, 300)), (16, icon), (22, icon), (44, first_card), (110, first_card), (140, (480, 330)), (190, (480, 330))])
+
+    frames = []
+    for i in range(190):
+        cur = cursor_at(i)
+        t = ease((i - 66) / 18)
+        layout = {app: lerp_rect(before[app], after[app], t) for app in apps}
+        img = BG.copy()
+        for app in BACK_TO_FRONT:
+            window(img, layout[app], app)
+        if 48 <= i < 66:
+            # Outlines first: where the windows would go
+            for rect, order in picked:
+                region(img, rect, fill_alpha=50)
+        if i >= 76:
+            for rect, order in picked:
+                if len(order) > 1:
+                    glass_strip(img, rect[0], rect[1] + rect[3] - TAB_H, order, order[0], alpha=min(255, (i - 76) * 40))
+        menubar(img)
+        panel_alpha = 0 if i < 22 else min(255, (i - 22 + 1) * 50) if i < 112 else max(0, 255 - (i - 112) * 50)
+        if panel_alpha > 0:
+            panel(img, layout, 0 if 44 <= i < 112 else None, panel_alpha)
+        cursor(img, cur, pressed=i in (20, 21, 108, 109))
+        frames.append(img)
+    return loop_back(frames)
+
+# MARK: Spacing and background
+
+def appearance_frames():
+    top = MB
+    def layout(gap):
+        x0, y0, w, h = gap, top + gap, W - 2 * gap, H - top - 2 * gap
+        lw = (w - gap) * 0.55
+        rw = w - gap - lw
+        rh = (h - gap) / 2
+        return {'Dia': (x0, y0, lw, h), 'Slack': (x0 + lw + gap, y0, rw, rh), 'Ghostty': (x0 + lw + gap, y0 + rh + gap, rw, rh)}
+
+    backgrounds = {
+        'Wallpaper': BG,
+        'Ocean': gradient((15, 42, 68), (31, 111, 139)),
+        'Dawn': gradient((243, 217, 196), (201, 211, 222)),
+    }
+    swatches = [('Wallpaper', None), ('Graphite', [(28, 28, 30)]), ('Dusk', [(43, 51, 64), (91, 75, 107)]),
+                ('Ocean', [(15, 42, 68), (31, 111, 139)]), ('Dawn', [(243, 217, 196), (201, 211, 222)]), ('Mist', [(221, 227, 234)])]
+    sizes = [('None', 0), ('Small', 6), ('Medium', 12), ('Large', 20)]
+
+    # A Settings window floating over the windows
+    SW, SH = 380, 150
+    SX, SY = (W - SW) / 2, H - SH - 40
+    seg_w = (SW - 32) / 4
+    seg = [(SX + 16 + i * seg_w, SY + 52, seg_w, 26) for i in range(4)]
+    sw = [(SX + 16 + i * 40 + 13, SY + 118) for i in range(len(swatches))]
+
+    def settings(img, spacing, background):
+        rect = (SX, SY, SW, SH)
+        shadow(img, rect, radius=12, blur=22, alpha=130, offset=10)
+        layer = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer)
+        X, Y, Wd, Hd = sc(rect)
+        d.rounded_rectangle([X, Y, X + Wd, Y + Hd], 12 * S, fill=(246, 246, 248, 252), outline=(205, 205, 210, 255), width=S)
+        d.text((X + 16 * S, Y + 36 * S), 'Spacing', font=font(13, 600), fill=(30, 30, 34, 255), anchor='lm')
+        sx, sy, _, sh = sc(seg[0])
+        d.rounded_rectangle([sx, sy, sx + seg_w * 4 * S, sy + sh], 7 * S, fill=(228, 228, 232, 255))
+        for (name, _), r in zip(sizes, seg):
+            rx, ry, rw, rh = sc(r)
+            on = name == spacing
+            if on: d.rounded_rectangle([rx + 2 * S, ry + 2 * S, rx + rw - 2 * S, ry + rh - 2 * S], 5 * S, fill=(255, 255, 255, 255))
+            d.text((rx + rw / 2, ry + rh / 2), name, font=font(12, 600 if on else 400), fill=((20, 20, 24) if on else (100, 100, 108)) + (255,), anchor='mm')
+        d.text((X + 16 * S, Y + 96 * S), 'Background', font=font(13, 600), fill=(30, 30, 34, 255), anchor='lm')
+        for (name, colors), (cx, cy) in zip(swatches, sw):
+            r = 13 * S
+            CX, CY = cx * S, cy * S
+            if name == background:
+                d.ellipse([CX - r - 4 * S, CY - r - 4 * S, CX + r + 4 * S, CY + r + 4 * S], outline=ACCENT + (255,), width=2 * S)
+            if colors is None:
+                d.ellipse([CX - r, CY - r, CX + r, CY + r], fill=(255, 255, 255, 255), outline=(190, 190, 196, 255), width=S)
+                d.rounded_rectangle([CX - 7 * S, CY - 5 * S, CX + 7 * S, CY + 5 * S], 2 * S, outline=(120, 120, 128, 255), width=int(1.5 * S))
+            else:
+                top_c, bottom_c = colors[0], colors[-1]
+                for k in range(int(2 * r)):
+                    c = tuple(int(lerp(a, b, k / (2 * r))) for a, b in zip(top_c, bottom_c))
+                    half = (r * r - (k - r) ** 2) ** 0.5
+                    d.line([CX - half, CY - r + k, CX + half, CY - r + k], fill=c + (255,))
+                d.ellipse([CX - r, CY - r, CX + r, CY + r], outline=(0, 0, 0, 40), width=S)
+        img.paste(layer, (0, 0), layer)
+
+    def center(r): return (r[0] + r[2] / 2, r[1] + r[3] / 2)
+    clicks = [(24, 'spacing', 'Large'), (60, 'spacing', 'None'), (96, 'spacing', 'Medium'), (136, 'background', 'Ocean'), (172, 'background', 'Dawn')]
+    target = {'Large': center(seg[3]), 'None': center(seg[0]), 'Medium': center(seg[2]),
+              'Ocean': sw[3], 'Dawn': sw[4]}
+    keys = [(0, (480, 250))]
+    for frame, _, value in clicks:
+        keys += [(frame - 4, target[value]), (frame + 2, target[value])]
+    keys += [(206, (480, 250))]
+    cursor_at = cursor_path(keys)
+
+    frames = []
+    spacing, background = 'Medium', 'Wallpaper'
+    gap_from = gap_to = 12
+    gap_at = 0
+    bg_from = bg_to = 'Wallpaper'
+    bg_at = 0
+    for i in range(216):
+        for frame, kind, value in clicks:
+            if i == frame:
+                if kind == 'spacing':
+                    gap_from = lerp(gap_from, gap_to, ease((i - gap_at) / 12))
+                    gap_to, gap_at, spacing = dict(sizes)[value], i, value
+                else:
+                    bg_from, bg_to, bg_at, background = bg_to, value, i, value
+        gap = lerp(gap_from, gap_to, ease((i - gap_at) / 12))
+        img = Image.blend(backgrounds[bg_from], backgrounds[bg_to], ease((i - bg_at) / 10))
+        for app, rect in layout(gap).items():
+            window(img, rect, app)
+        menubar(img)
+        settings(img, spacing, background)
+        cursor(img, cursor_at(i), pressed=any(i in (f, f + 1) for f, _, _ in clicks))
+        frames.append(img)
+    return loop_back(frames)
+
 if __name__ == '__main__':
-    which = sys.argv[2:] or ['drag', 'tabs', 'panel']
+    which = sys.argv[2:] or ['drag', 'tabs', 'panel', 'arrange', 'appearance']
     if 'drag' in which: save(drag_frames(), 'drag-and-drop.gif')
     if 'tabs' in which: save(tabs_frames(), 'stack-tabs.gif')
     if 'panel' in which: save(panel_frames(), 'menu-bar-panel.gif')
+    if 'arrange' in which: save(arrange_frames(), 'auto-arrange.gif')
+    if 'appearance' in which: save(appearance_frames(), 'spacing-and-background.gif')

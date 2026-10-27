@@ -38,7 +38,23 @@ Windows that share a spot get a strip of tabs, with the one in front highlighted
   <img src="./docs/readme/menu-bar-panel.gif" width="720" alt="The nanopress panel opens from the menu bar. Ghostty's tile is dragged next to Dia in the minimap and the real windows follow, then Slack's tile is dropped on workspace 2">
 </p>
 
-Click the nanopress icon in the menu bar for a minimap of your screen. Drag tiles to move windows, drag the gaps between them to resize, and drop a tile on a workspace number to send the window there. Your windows show each change at full size before you let go. Auto-arrange suggests a few roomy layouts, with windows of a kind, like browsers or terminals, stacked together.
+Click the nanopress icon in the menu bar for a minimap of your screen. Drag tiles to move windows, drag the gaps between them to resize, and drop a tile on a workspace number to send the window there. Your windows show each change at full size before you let go.
+
+## Let nanopress tidy up
+
+<p align="center">
+  <img src="./docs/readme/auto-arrange.gif" width="720" alt="Six windows squeezed into thin columns. Auto-arrange in the panel shows three layouts; hovering the first outlines it, then the windows move into three roomy spots with the browsers, the terminals and the chat apps stacked together">
+</p>
+
+Too many windows for the screen? Auto-arrange, below the minimap, suggests a few roomy layouts, with windows of a kind, like browsers or terminals, stacked together. Hover one to try it on your real windows, and click to keep it. It's also where nanopress starts when there's no layout saved yet.
+
+## Make it look the way you like
+
+<p align="center">
+  <img src="./docs/readme/spacing-and-background.gif" width="720" alt="nanopress Settings over three windows: picking a spacing grows and shrinks the gaps between the windows, then picking a background swaps the wallpaper behind them for a gradient">
+</p>
+
+In Settings, pick how much space goes between your windows, from none to large, or let it grow with the screen. Behind them, keep your wallpaper or pick a calm color, so the gaps read as gaps.
 
 ## And also
 
@@ -46,7 +62,7 @@ Click the nanopress icon in the menu bar for a minimap of your screen. Drag tile
 - Double-click a title bar to give a window the whole screen, and again to bring your layout back.
 - New windows open where you last put that app, and stack once the screen is full.
 - Changes nanopress makes on its own come with Undo.
-- Each display setup keeps its own layout. With nothing saved yet, nanopress starts from an auto-arranged one.
+- Each display setup keeps its own layout.
 - Apps you don't want tiled, like Finder, can float. See Settings.
 - AI agents that speak MCP can arrange your windows too, if you turn it on in Settings. I'm still working out what for.
 

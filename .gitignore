@@ -33,3 +33,4 @@
 # XCode User settings
 xcuserdata/
 xcshareddata/
+__pycache__/

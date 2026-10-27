@@ -278,13 +278,13 @@ final class StackTabsModel: ObservableObject {
 private final class TabStrip {
     weak var stack: TilingContainer?
     private let model = StackTabsModel()
-    private let panel: NSPanel
+    private let panel: TabStripPanel
     private var scrolled: CGFloat = 0
     private var room: NSRect? = nil
 
     init(stack: TilingContainer) {
         self.stack = stack
-        panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel = TabStripPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .normal
         panel.collectionBehavior = [.ignoresCycle, .fullScreenNone]
         panel.isReleasedWhenClosed = false
@@ -301,6 +301,7 @@ private final class TabStrip {
         view.onScroll = { [weak self] event in self?.scroll(event) }
         view.onHover = { [weak self] hovering in self?.model.isHovered = hovering }
         panel.contentView = view
+        panel.keepBehindFront = { [weak self] in self?.orderBehindFront() }
         showAddMenu = { [weak self] in self?.showAddMenu() }
     }
 
@@ -331,6 +332,10 @@ private final class TabStrip {
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         if !panel.isVisible { panel.orderFrontRegardless() }
         // Right behind the window in front: its tab comes out from under it, and nothing else covers the bar
+        orderBehindFront()
+    }
+
+    private func orderBehindFront() {
         if let front = model.front { panel.order(.below, relativeTo: Int(front)) }
     }
 
@@ -356,6 +361,24 @@ private final class TabStrip {
 
 /// Takes the first click without the panel becoming key, and reports scrolling and hovering, which SwiftUI doesn't
 /// for a panel of an app in the background
+/// A click brings a window to the front. The tab bar goes straight back behind its window, so that the front tab stays
+/// tucked under it
+private final class TabStripPanel: NSPanel {
+    var keepBehindFront: () -> Void = {}
+
+    override func sendEvent(_ event: NSEvent) {
+        let isPress = event.type == .leftMouseDown || event.type == .rightMouseDown
+        if isPress { keepBehindFront() }
+        super.sendEvent(event)
+        if isPress || event.type == .leftMouseUp { keepBehindFront() }
+    }
+
+    override func orderFront(_ sender: Any?) {
+        super.orderFront(sender)
+        keepBehindFront()
+    }
+}
+
 private final class TabStripHostingView: NSHostingView<StackTabsView> {
     var onScroll: ((NSEvent) -> Void)? = nil
     var onHover: ((Bool) -> Void)? = nil

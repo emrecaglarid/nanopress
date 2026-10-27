@@ -5,6 +5,11 @@ import SwiftUI
 /// Room above a stack for its tabs, including the gap between the tabs and the windows
 let stackTabsHeight: CGFloat = 28
 private let tabsGap: CGFloat = 4
+/// How far the bar reaches under the window in front, so that its tab seems to come out from under it
+private let tabTuck: CGFloat = 8
+/// Clear of the window's rounded corner, which would show the tab behind it
+private let tabsLeadingInset: CGFloat = 12
+private let inactiveTabHeight: CGFloat = 22
 /// Between neighbouring tabs
 private let tabsSpacing: CGFloat = 3
 /// The tabs read as one block: round at its two ends, nearly square where tabs meet
@@ -69,9 +74,10 @@ final class StackTabs {
         }
     }
 
-    /// The room for the tabs at the top or bottom of the stack's rect, in AppKit coordinates
+    /// The room for the tabs at the top or bottom of the stack's rect, reaching tabTuck under the window, in AppKit
+    /// coordinates
     private func stripFrame(_ stack: Rect) -> NSRect {
-        let height = stackTabsHeight - tabsGap
+        let height = stackTabsHeight + tabTuck
         let top = NanopressSettings.shared.tabsPosition == .top ? stack.minY : stack.maxY - height
         return NSRect(x: stack.minX, y: mainMonitorInfo.height - top - height, width: stack.width, height: height)
     }
@@ -261,6 +267,8 @@ final class StackTabsModel: ObservableObject {
     @Published var tabs: [StackTab] = []
     @Published var front: UInt32? = nil
     @Published var isHovered = false
+    /// Which side of the stack the tabs are on. The window's side is where the front tab tucks under it
+    @Published var atTop = false
     /// More tabs than fit at their natural width: they share the whole bar. See TabStrip.update
     @Published var fillsWidth = false
 }
@@ -310,6 +318,8 @@ private final class TabStrip {
     func update(tabs: [StackTab], front: UInt32? = nil, frame room: NSRect? = nil) {
         if model.tabs != tabs { model.tabs = tabs }
         if let front, model.front != front { model.front = front }
+        let atTop = NanopressSettings.shared.tabsPosition == .top
+        if model.atTop != atTop { model.atTop = atTop }
         if let room { self.room = room }
         guard let room = self.room, let view = panel.contentView else { return }
         model.fillsWidth = false
@@ -320,6 +330,8 @@ private final class TabStrip {
         let frame = NSRect(x: room.minX, y: room.minY, width: min(width, room.width), height: room.height)
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         if !panel.isVisible { panel.orderFrontRegardless() }
+        // Right behind the window in front: its tab comes out from under it, and nothing else covers the bar
+        if let front = model.front { panel.order(.below, relativeTo: Int(front)) }
     }
 
     func close() {
@@ -381,21 +393,26 @@ struct StackTabsView: View {
     let select: (UInt32) -> Void
 
     var body: some View {
-        // One block of tabs with nothing around it, like a group of toolbar buttons
-        HStack(spacing: tabsSpacing) {
-            ForEach(Array(model.tabs.enumerated()), id: \.element.id) { index, tab in
+        // The front tab reaches under the window, like a folder tab: square on the window's side, rounded on the other.
+        // The rest are shorter, apart from the window
+        HStack(alignment: model.atTop ? .top : .bottom, spacing: tabsSpacing) {
+            ForEach(model.tabs) { tab in
                 let isFront = tab.windowId == model.front
-                // "+" ends the block while it shows
-                let isLast = index == model.tabs.count - 1 && !model.isHovered
-                let shape = TabShape(leading: index == 0 ? tabOuterRadius : tabInnerRadius, trailing: isLast ? tabOuterRadius : tabInnerRadius)
+                let shape = isFront
+                    ? CornerShape(windowSide: 0, farSide: tabOuterRadius, atTop: model.atTop)
+                    : CornerShape(windowSide: tabOuterRadius - 1, farSide: tabOuterRadius - 1, atTop: model.atTop)
                 // The window in front is in plain sight already
                 StackTabButton(tab: tab, isFront: isFront, badge: isFront ? nil : dock.badges[tab.app], fillsWidth: model.fillsWidth, shape: shape) { select(tab.windowId) }
+                    .frame(height: isFront ? nil : inactiveTabHeight)
+                    .frame(maxHeight: isFront ? .infinity : nil)
             }
             // Out of sight until the bar is hovered, but keeping its room, so that the bar doesn't change width
             AddWindowButton(action: addWindow)
+                .frame(height: inactiveTabHeight)
                 .opacity(model.isHovered ? 1 : 0)
         }
-        .frame(maxWidth: model.fillsWidth ? .infinity : nil, maxHeight: .infinity, alignment: .leading)
+        .padding(.leading, tabsLeadingInset)
+        .frame(maxWidth: model.fillsWidth ? .infinity : nil, maxHeight: .infinity, alignment: model.atTop ? .topLeading : .bottomLeading)
         .fixedSize(horizontal: !model.fillsWidth, vertical: false)
     }
 }
@@ -433,7 +450,7 @@ private struct AddWindowButton: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 26)
                 .frame(maxHeight: .infinity)
-                .background(tabFill(isFront: false, isHovered: isHovered), in: TabShape(leading: tabInnerRadius, trailing: tabOuterRadius))
+                .background(tabFill(isFront: false, isHovered: isHovered), in: CornerShape(windowSide: tabOuterRadius - 1, farSide: tabOuterRadius - 1, atTop: false))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -450,7 +467,7 @@ private struct StackTabButton: View {
     let badge: String?
     /// The tabs share the bar's width instead of taking what their titles need
     let fillsWidth: Bool
-    let shape: TabShape
+    let shape: CornerShape
     let select: () -> Void
     @State private var isHovered = false
 
@@ -545,6 +562,28 @@ struct TabShape: Shape {
         path.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.maxY), tangent2End: CGPoint(x: rect.minX, y: rect.maxY), radius: trailing)
         path.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.maxY), tangent2End: CGPoint(x: rect.minX, y: rect.minY), radius: leading)
         path.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.minY), tangent2End: CGPoint(x: rect.maxX, y: rect.minY), radius: leading)
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// A rectangle with one corner radius on the side toward the window and another on the far side
+struct CornerShape: Shape {
+    let windowSide: CGFloat
+    let farSide: CGFloat
+    /// Tabs above the window: the window is below them
+    let atTop: Bool
+
+    func path(in rect: CGRect) -> Path {
+        let top = min(atTop ? farSide : windowSide, rect.height / 2, rect.width / 2)
+        let bottom = min(atTop ? windowSide : farSide, rect.height / 2, rect.width / 2)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX + top, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - top, y: rect.minY))
+        path.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.minY), tangent2End: CGPoint(x: rect.maxX, y: rect.maxY), radius: top)
+        path.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.maxY), tangent2End: CGPoint(x: rect.minX, y: rect.maxY), radius: bottom)
+        path.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.maxY), tangent2End: CGPoint(x: rect.minX, y: rect.minY), radius: bottom)
+        path.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.minY), tangent2End: CGPoint(x: rect.maxX, y: rect.minY), radius: top)
         path.closeSubpath()
         return path
     }

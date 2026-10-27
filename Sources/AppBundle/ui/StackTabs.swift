@@ -5,8 +5,6 @@ import SwiftUI
 /// Room above a stack for its tabs, including the gap between the tabs and the windows
 let stackTabsHeight: CGFloat = 28
 private let tabsGap: CGFloat = 4
-/// How far the bar reaches under the window in front, so that its tab seems to come out from under it
-private let tabTuck: CGFloat = 8
 /// Clear of the window's rounded corner, which would show the tab behind it
 private let tabsLeadingInset: CGFloat = 12
 private let inactiveTabHeight: CGFloat = 22
@@ -74,10 +72,9 @@ final class StackTabs {
         }
     }
 
-    /// The room for the tabs at the top or bottom of the stack's rect, reaching tabTuck under the window, in AppKit
-    /// coordinates
+    /// The room for the tabs at the top or bottom of the stack's rect, in AppKit coordinates
     private func stripFrame(_ stack: Rect) -> NSRect {
-        let height = stackTabsHeight + tabTuck
+        let height = stackTabsHeight
         let top = NanopressSettings.shared.tabsPosition == .top ? stack.minY : stack.maxY - height
         return NSRect(x: stack.minX, y: mainMonitorInfo.height - top - height, width: stack.width, height: height)
     }
@@ -282,15 +279,17 @@ private final class TabStrip {
     /// out twice per change
     private let measureModel = StackTabsModel()
     private let measureView: NSHostingView<StackTabsView>
-    private let panel: TabStripPanel
+    private let panel: NSPanel
     private var scrolled: CGFloat = 0
     private var room: NSRect? = nil
 
     init(stack: TilingContainer) {
         self.stack = stack
         measureView = NSHostingView(rootView: StackTabsView(model: measureModel, addWindow: {}, select: { _ in }))
-        panel = TabStripPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.level = .normal
+        panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        // Just above app windows: a window coming forward would cover the bar and drop its shadow on it, which reads as
+        // the whole bar flickering. Still below floating panels and menus
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue + 1)
         panel.collectionBehavior = [.ignoresCycle, .fullScreenNone]
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
@@ -300,13 +299,17 @@ private final class TabStrip {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         var showAddMenu: () -> Void = {}
+        let model = model
         let view = TabStripHostingView(rootView: StackTabsView(model: model, addWindow: { showAddMenu() }) { windowId in
+            // Right away, rather than once the window has come forward
+            model.front = windowId
             StackTabs.shared.bringForward(windowId)
         })
+        // The bar sets its own size. Otherwise the view resizes the window too whenever the tabs change, and the two fight
+        view.sizingOptions = []
         view.onScroll = { [weak self] event in self?.scroll(event) }
         view.onHover = { [weak self] hovering in self?.model.isHovered = hovering }
         panel.contentView = view
-        panel.keepBehindFront = { [weak self] in self?.orderBehindFront() }
         showAddMenu = { [weak self] in self?.showAddMenu() }
     }
 
@@ -336,15 +339,11 @@ private final class TabStrip {
         // Too many tabs to hug: they share the whole width instead
         let fillsWidth = width > room.width
         if model.fillsWidth != fillsWidth { model.fillsWidth = fillsWidth }
-        let frame = NSRect(x: room.minX, y: room.minY, width: min(width, room.width), height: room.height)
+        // In whole points, the way the window server keeps it, so that an unchanged frame compares equal and the bar
+        // isn't resized and redrawn after every layout
+        let frame = NSRect(x: room.minX.rounded(), y: room.minY.rounded(), width: min(width, room.width).rounded(), height: room.height.rounded())
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         if !panel.isVisible { panel.orderFrontRegardless() }
-        // Right behind the window in front: its tab comes out from under it, and nothing else covers the bar
-        orderBehindFront()
-    }
-
-    private func orderBehindFront() {
-        if let front = model.front { panel.order(.below, relativeTo: Int(front)) }
     }
 
     func close() {
@@ -369,24 +368,6 @@ private final class TabStrip {
 
 /// Takes the first click without the panel becoming key, and reports scrolling and hovering, which SwiftUI doesn't
 /// for a panel of an app in the background
-/// A click brings a window to the front. The tab bar goes straight back behind its window, so that the front tab stays
-/// tucked under it
-private final class TabStripPanel: NSPanel {
-    var keepBehindFront: () -> Void = {}
-
-    override func sendEvent(_ event: NSEvent) {
-        let isPress = event.type == .leftMouseDown || event.type == .rightMouseDown
-        if isPress { keepBehindFront() }
-        super.sendEvent(event)
-        if isPress || event.type == .leftMouseUp { keepBehindFront() }
-    }
-
-    override func orderFront(_ sender: Any?) {
-        super.orderFront(sender)
-        keepBehindFront()
-    }
-}
-
 private final class TabStripHostingView: NSHostingView<StackTabsView> {
     var onScroll: ((NSEvent) -> Void)? = nil
     var onHover: ((Bool) -> Void)? = nil
@@ -424,8 +405,8 @@ struct StackTabsView: View {
     let select: (UInt32) -> Void
 
     var body: some View {
-        // The front tab reaches under the window, like a folder tab: square on the window's side, rounded on the other.
-        // The rest are shorter, apart from the window
+        // The front tab meets the window, like a folder tab: square on the window's side, rounded on the other. The rest
+        // are shorter, apart from the window
         HStack(alignment: model.atTop ? .top : .bottom, spacing: tabsSpacing) {
             ForEach(model.tabs) { tab in
                 let isFront = tab.windowId == model.front
@@ -433,7 +414,7 @@ struct StackTabsView: View {
                     ? CornerShape(windowSide: 0, farSide: tabOuterRadius, atTop: model.atTop)
                     : CornerShape(windowSide: tabOuterRadius - 1, farSide: tabOuterRadius - 1, atTop: model.atTop)
                 // The window in front is in plain sight already
-                StackTabButton(tab: tab, isFront: isFront, badge: isFront ? nil : dock.badges[tab.app], fillsWidth: model.fillsWidth, shape: shape, windowEdge: windowEdge) { select(tab.windowId) }
+                StackTabButton(tab: tab, isFront: isFront, badge: isFront ? nil : dock.badges[tab.app], fillsWidth: model.fillsWidth, shape: shape) { select(tab.windowId) }
                     .frame(height: isFront ? nil : inactiveTabHeight)
                     .frame(maxHeight: isFront ? .infinity : nil)
                     .padding(isFront ? [] : farEdge, inactiveInset)
@@ -449,7 +430,6 @@ struct StackTabsView: View {
         .fixedSize(horizontal: !model.fillsWidth, vertical: false)
     }
 
-    private var windowEdge: Edge.Set { model.atTop ? .bottom : .top }
     private var farEdge: Edge.Set { model.atTop ? .top : .bottom }
     /// Centers the shorter tabs on the front tab's label
     private var inactiveInset: CGFloat { (stackTabsHeight - inactiveTabHeight) / 2 }
@@ -506,8 +486,6 @@ private struct StackTabButton: View {
     /// The tabs share the bar's width instead of taking what their titles need
     let fillsWidth: Bool
     let shape: CornerShape
-    /// The front tab's label sits in the part that shows, clear of the window's edge
-    var windowEdge: Edge.Set = []
     let select: () -> Void
     @State private var isHovered = false
 
@@ -530,7 +508,6 @@ private struct StackTabButton: View {
             }
             .padding(.horizontal, 10)
             .frame(maxWidth: fillsWidth ? 260 : nil, maxHeight: .infinity, alignment: .leading)
-            .padding(windowEdge, isFront ? tabTuck : 0)
             .background(tabFill(isFront: isFront, isHovered: isHovered), in: shape)
             // The others stay quiet until pointed at
             .opacity(isFront || isHovered ? 1 : 0.7)
@@ -631,3 +608,4 @@ struct CornerShape: Shape {
         return path
     }
 }
+

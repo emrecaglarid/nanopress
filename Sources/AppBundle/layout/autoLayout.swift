@@ -23,6 +23,40 @@ func arrangements(of workspace: Workspace, showing count: Int, limit: Int) -> [S
         .map { buildArrangement($0, shown: shown, overflow: overflow, area: area) }
 }
 
+/// The best layouts for any number of windows on screen, ranked together, so that nobody has to pick a count first.
+/// A window that has to be stacked to make room costs about as much as a cramped tile, so showing everything wins
+/// when it fits and stacking wins when it doesn't
+@MainActor
+func bestArrangements(of workspace: Workspace, limit: Int) -> [SimNode] {
+    let windows = windowsByRecency(workspace.rootTilingContainer)
+    guard !windows.isEmpty else { return [] }
+    let area = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
+    var scored: [(score: CGFloat, columns: [[Window]], shown: [Window], overflow: [Window])] = []
+    for count in arrangeCounts(of: workspace).reversed() {
+        let shown = Array(windows.prefix(count))
+        let overflow = Array(windows.dropFirst(count))
+        for columns in arrangeShapes(shown, area: area).prefix(3) {
+            scored.append((misfit(columns, area: area) + stackedWindowCost * CGFloat(overflow.count), columns, shown, overflow))
+        }
+    }
+    // Stable: on a tie, more windows on screen wins, since the counts go from most to fewest
+    return scored.enumerated()
+        .sorted { ($0.element.score, $0.offset) < ($1.element.score, $1.offset) }
+        .prefix(limit)
+        .map { buildArrangement($0.element.columns, shown: $0.element.shown, overflow: $0.element.overflow, area: area) }
+}
+
+private let stackedWindowCost: CGFloat = 0.5
+
+/// What an arrangement does, for its card: "All 4 visible", "3 visible, 2 stacked"
+@MainActor
+func arrangementLabel(_ sim: SimNode) -> String {
+    let all = sim.allWindows.count
+    let stacked = sim.allNodes.filter { $0.layout == .accordion }.map { $0.allWindows.count - 1 }.reduce(0, +)
+    if stacked == 0 { return all == 1 ? "1 window" : "All \(all) visible" }
+    return "\(all - stacked) visible, \(stacked) stacked"
+}
+
 @MainActor
 private func buildArrangement(_ columns: [[Window]], shown: [Window], overflow: [Window], area: Rect) -> SimNode {
     let widths = columnWidths(columns, area: area)

@@ -172,4 +172,26 @@ final class AutoLayoutTest: XCTestCase {
         // The neighbour keeps at least 200
         XCTAssertFalse(makeRoom(for: wide, extra: CGSize(width: 500, height: 0)))
     }
+
+    func testBestArrangementShowsEverythingWhenItFits() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        TestWindow.new(id: 0, parent: root)
+        TestWindow.new(id: 1, parent: root)
+
+        let options = bestArrangements(of: workspace, limit: 3)
+        assertEquals(options.map(arrangementLabel).first, "All 2 visible")
+    }
+
+    func testArrangementLabelCountsStackedWindows() {
+        let sim = SimNode(.workspace)
+        let root = SimNode(.container(.h, .tiles))
+        root.bind(to: sim, weight: 1, index: 0)
+        SimNode(.window(0)).bind(to: root, weight: 1, index: INDEX_BIND_LAST)
+        let stack = SimNode(.container(.v, .accordion))
+        stack.bind(to: root, weight: 1, index: INDEX_BIND_LAST)
+        for id: UInt32 in 1 ... 3 { SimNode(.window(id)).bind(to: stack, weight: 1, index: INDEX_BIND_LAST) }
+
+        assertEquals(arrangementLabel(sim), "2 visible, 2 stacked")
+    }
 }

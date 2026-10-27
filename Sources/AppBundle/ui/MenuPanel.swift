@@ -17,8 +17,6 @@ struct MenuPanel: View {
     @ObservedObject private var lastChange = LastChange.shared
     @ObservedObject private var settings = NanopressSettings.shared
     @State private var contentHeight: CGFloat = 0
-    /// Nil until picked: the number of tiles on screen right now
-    @State private var arrangeCount: Int? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -99,34 +97,18 @@ struct MenuPanel: View {
     @ViewBuilder
     private var arrange: some View {
         let workspace = focus.workspace
-        let counts = arrangeCounts(of: workspace)
-        if let maxCount = counts.last {
-            let tilesOnScreen = workspace.rootTilingContainer.allLeafWindowsRecursive.map(\.stackOrSelf).uniqueByIdentity().count
-            let frozen = LiveArrangement.shared.frozenOptions(of: workspace)
-            let count = frozen?.count ?? min(arrangeCount ?? tilesOnScreen, maxCount)
-            let options = frozen?.options ?? arrangements(of: workspace, showing: count, limit: 3)
+        let frozen = LiveArrangement.shared.frozenOptions(of: workspace)
+        let options = frozen?.options ?? bestArrangements(of: workspace, limit: 3)
+        if !options.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    sectionTitle("Auto-arrange")
-                    Spacer()
-                    // Neutral when selected, like a native segmented control: accent stays for what's current
-                    HStack(spacing: 0) {
-                        ForEach(counts, id: \.self) { option in
-                            CountChip(count: option, isSelected: option == count) {
-                                LiveArrangement.shared.revert()
-                                arrangeCount = option
-                            }
-                        }
-                    }
-                    .padding(2)
-                    .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                }
+                sectionTitle("Auto-arrange")
                 HStack(spacing: arrangeSpacing) {
                     ForEach(Array(options.enumerated()), id: \.offset) { rank, sim in
                         ArrangeOption(
-                            key: LiveArrangement.Key(workspaceName: workspace.name, count: count, rank: rank),
+                            key: LiveArrangement.Key(workspaceName: workspace.name, count: 0, rank: rank),
                             options: options,
                             tiles: arrangedTiles(sim, on: workspace),
+                            label: arrangementLabel(sim),
                             monitorRect: workspace.workspaceMonitor.rect.cgRect,
                         )
                     }
@@ -204,38 +186,12 @@ private func sectionTitle(_ title: String) -> some View {
 }
 
 /// A thumbnail of one Arrange option. Hovering previews it full size, clicking applies it
-private struct CountChip: View {
-    let count: Int
-    let isSelected: Bool
-    let select: () -> Void
-    @State private var isHovered = false
-
-    var body: some View {
-        Button(action: select) {
-            // The selected segment spells out what the number counts
-            Text(isSelected ? (count == 1 ? "1 window" : "\(count) windows") : "\(count)")
-                .font(.system(size: 12, weight: isSelected ? .medium : .regular))
-                .monospacedDigit()
-                .padding(.horizontal, isSelected ? 10 : 0)
-                .frame(minWidth: 28, minHeight: 20)
-                .background(
-                    isSelected ? AnyShapeStyle(Color(nsColor: .controlBackgroundColor)) : AnyShapeStyle(Color.primary.opacity(isHovered ? 0.06 : 0)),
-                    in: RoundedRectangle(cornerRadius: 5, style: .continuous),
-                )
-                .shadow(color: .black.opacity(isSelected ? 0.15 : 0), radius: 0.5, y: 0.5)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovered = $0 }
-        .accessibilityLabel(count == 1 ? "1 window" : "\(count) windows")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-
 private struct ArrangeOption: View {
     let key: LiveArrangement.Key
     let options: [SimNode]
     let tiles: [ArrangedTile]
+    /// What it does, like "3 visible, 2 stacked"
+    let label: String
     let monitorRect: CGRect
     @ObservedObject private var live = LiveArrangement.shared
     @State private var isHovered = false
@@ -249,7 +205,7 @@ private struct ArrangeOption: View {
         Button(action: apply) {
             VStack(spacing: 6) {
                 thumbnail
-                Text(key.rank == 0 ? "Best fit" : "Option \(key.rank + 1)")
+                Text(label)
                     .font(.system(size: 11, weight: key.rank == 0 ? .semibold : .regular))
                     .foregroundStyle(isHovered || isTried ? Color.accentColor : .secondary)
             }

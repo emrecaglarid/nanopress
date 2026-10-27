@@ -278,12 +278,17 @@ final class StackTabsModel: ObservableObject {
 private final class TabStrip {
     weak var stack: TilingContainer?
     private let model = StackTabsModel()
+    /// The same tabs, laid out off screen to measure how wide they want to be, so that the bar on screen isn't laid
+    /// out twice per change
+    private let measureModel = StackTabsModel()
+    private let measureView: NSHostingView<StackTabsView>
     private let panel: TabStripPanel
     private var scrolled: CGFloat = 0
     private var room: NSRect? = nil
 
     init(stack: TilingContainer) {
         self.stack = stack
+        measureView = NSHostingView(rootView: StackTabsView(model: measureModel, addWindow: {}, select: { _ in }))
         panel = TabStripPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .normal
         panel.collectionBehavior = [.ignoresCycle, .fullScreenNone]
@@ -322,12 +327,15 @@ private final class TabStrip {
         let atTop = NanopressSettings.shared.tabsPosition == .top
         if model.atTop != atTop { model.atTop = atTop }
         if let room { self.room = room }
-        guard let room = self.room, let view = panel.contentView else { return }
-        model.fillsWidth = false
-        view.layoutSubtreeIfNeeded() // So that the size is measured with the tabs just set
-        let width = view.fittingSize.width
+        guard let room = self.room else { return }
+        if measureModel.tabs != model.tabs { measureModel.tabs = model.tabs }
+        if measureModel.front != model.front { measureModel.front = model.front }
+        if measureModel.atTop != atTop { measureModel.atTop = atTop }
+        measureView.layoutSubtreeIfNeeded() // So that the size is measured with the tabs just set
+        let width = measureView.fittingSize.width
         // Too many tabs to hug: they share the whole width instead
-        model.fillsWidth = width > room.width
+        let fillsWidth = width > room.width
+        if model.fillsWidth != fillsWidth { model.fillsWidth = fillsWidth }
         let frame = NSRect(x: room.minX, y: room.minY, width: min(width, room.width), height: room.height)
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         if !panel.isVisible { panel.orderFrontRegardless() }
@@ -510,7 +518,7 @@ private struct StackTabButton: View {
                 HStack(spacing: 6) {
                     icon
                     // The app in bold, then the window in a quieter weight: "Dia  Kytöniitty listing"
-                    (Text(tab.app).font(.system(size: 12, weight: isFront ? .semibold : .medium)) + Text(detail).font(.system(size: 12)).foregroundColor(isFront ? .accentColor.opacity(0.75) : .secondary))
+                    (Text(tab.app).font(.system(size: 12, weight: .semibold)) + Text(detail).font(.system(size: 12)).foregroundColor(isFront ? .accentColor.opacity(0.75) : .secondary))
                         .foregroundColor(isFront ? .accentColor : .secondary)
                         .lineLimit(1)
                         .truncationMode(.tail)

@@ -270,10 +270,14 @@ private struct MiddleZone: View {
     }
 }
 
-/// A card dropping onto another, over and over while Stack is hovered
+/// Strong ease-out for things arriving, strong ease-in-out for things trading places on screen
+private let arriveCurve = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.22)
+private let tradeCurve = Animation.timingCurve(0.77, 0, 0.175, 1, duration: 0.25)
+
+/// A card dropping onto another, once, when Stack is hovered. Back where it started when the cursor leaves
 private struct StackGlyph: View {
     let isAnimating: Bool
-    @State private var dropped = false
+    @State private var landed = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -282,22 +286,23 @@ private struct StackGlyph: View {
             shape.strokeBorder(lineWidth: 1.5).frame(width: 18, height: 13).offset(x: 3, y: -3)
             shape.fill(.background.opacity(0.01)).overlay(shape.strokeBorder(lineWidth: 1.5))
                 .frame(width: 18, height: 13)
-                .offset(y: isAnimating && !reduceMotion && !dropped ? -9 : 1)
-                .opacity(isAnimating && !reduceMotion && !dropped ? 0 : 1)
+                .offset(y: landed || reduceMotion ? 1 : -6)
+                .opacity(landed ? 1 : 0)
         }
         .frame(width: 24, height: 20)
-        .onAppear(perform: loop)
-        .onChange(of: isAnimating) { _ in loop() }
+        .onChange(of: isAnimating) { isAnimating in playOnce(isAnimating) }
+        .onAppear { playOnce(isAnimating) }
     }
 
-    private func loop() {
-        dropped = false
-        guard isAnimating, !reduceMotion else { return }
-        withAnimation(.timingCurve(0.2, 0, 0, 1, duration: 0.5).repeatForever(autoreverses: false)) { dropped = true }
+    private func playOnce(_ isAnimating: Bool) {
+        guard isAnimating else { return landed = true }
+        // Lift it first, then drop it on the next update: in the same update there'd be nothing to animate
+        landed = false
+        DispatchQueue.main.async { withAnimation(arriveCurve) { landed = true } }
     }
 }
 
-/// Two squares trading places, over and over while Swap is hovered
+/// Two squares trading places, once, when Swap is hovered. Back where they started when the cursor leaves
 private struct SwapGlyph: View {
     let isAnimating: Bool
     @State private var swapped = false
@@ -310,18 +315,18 @@ private struct SwapGlyph: View {
             shape.fill().frame(width: 10, height: 13).offset(x: swapped ? -6 : 6)
         }
         .frame(width: 24, height: 20)
-        .onAppear(perform: loop)
-        .onChange(of: isAnimating) { _ in loop() }
+        .onChange(of: isAnimating) { isAnimating in playOnce(isAnimating) }
+        .onAppear { playOnce(isAnimating) }
     }
 
-    private func loop() {
-        swapped = false
-        guard isAnimating, !reduceMotion else { return }
-        withAnimation(.timingCurve(0.2, 0, 0, 1, duration: 0.6).repeatForever(autoreverses: true)) { swapped = true }
+    private func playOnce(_ isAnimating: Bool) {
+        guard isAnimating else { return swapped = false }
+        if reduceMotion { return swapped = true }
+        withAnimation(tradeCurve) { swapped = true }
     }
 }
 
-/// On Stack: a card the size of the window slides down into the landing area, so it reads as "on top of"
+/// On Stack: a card the size of the window drops a short way into the landing area, once, so it reads as "on top of"
 private struct StackDropIn: View {
     @State private var landed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -331,10 +336,10 @@ private struct StackDropIn: View {
         shape
             .fill(Color.white.opacity(0.18))
             .overlay(shape.strokeBorder(Color.white.opacity(0.8), lineWidth: 1.5))
-            .offset(y: landed || reduceMotion ? 0 : -24)
-            .opacity(landed || reduceMotion ? 1 : 0)
+            .offset(y: landed || reduceMotion ? 0 : -12)
+            .opacity(landed ? 1 : 0)
             .onAppear {
-                withAnimation(.timingCurve(0.2, 0, 0, 1, duration: 0.35)) { landed = true }
+                withAnimation(.timingCurve(0.23, 1, 0.32, 1, duration: 0.2)) { landed = true }
             }
     }
 }

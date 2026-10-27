@@ -434,9 +434,7 @@ struct StackTabsView: View {
                 // The window in front is in plain sight already
                 StackTabButton(tab: tab, isFront: isFront, badge: isFront ? nil : dock.badges[tab.app], fillsWidth: model.fillsWidth) { select(tab.windowId) }
             }
-            // Out of sight until the strip is hovered
             AddWindowButton(action: addWindow)
-                .opacity(model.isHovered ? 1 : 0)
         }
         .padding(stripPadding)
         .frame(maxWidth: model.fillsWidth ? .infinity : nil, maxHeight: .infinity, alignment: .leading)

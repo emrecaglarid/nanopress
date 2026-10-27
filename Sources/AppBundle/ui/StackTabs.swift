@@ -3,16 +3,13 @@ import Common
 import SwiftUI
 
 /// Room above a stack for its tabs, including the gap between the tabs and the windows
-let stackTabsHeight: CGFloat = 28
+let stackTabsHeight: CGFloat = 36
 private let tabsGap: CGFloat = 4
-/// Clear of the window's rounded corner with room to spare, so that the front tab meets a straight edge
-private let tabsLeadingInset: CGFloat = 24
-private let inactiveTabHeight: CGFloat = 22
-/// Between neighbouring tabs
-private let tabsSpacing: CGFloat = 3
-/// The tabs read as one block: round at its two ends, nearly square where tabs meet
-private let tabOuterRadius: CGFloat = 8
-private let tabInnerRadius: CGFloat = 3
+/// Around the tabs, inside the strip
+private let stripPadding: CGFloat = 3
+private let pillRadius: CGFloat = 7
+/// Concentric with the pills inside it
+private let stripRadius: CGFloat = pillRadius + stripPadding
 
 /// Every stack on screen gets a row of tabs above it, one per window, like browser tabs. A stack otherwise looks like a
 /// single window, and the windows behind it are easy to forget.
@@ -74,7 +71,7 @@ final class StackTabs {
 
     /// The room for the tabs at the top or bottom of the stack's rect, in AppKit coordinates
     private func stripFrame(_ stack: Rect) -> NSRect {
-        let height = stackTabsHeight
+        let height = stackTabsHeight - tabsGap
         let top = NanopressSettings.shared.tabsPosition == .top ? stack.minY : stack.maxY - height
         return NSRect(x: stack.minX, y: mainMonitorInfo.height - top - height, width: stack.width, height: height)
     }
@@ -282,14 +279,13 @@ private final class TabStrip {
     private let panel: NSPanel
     private var scrolled: CGFloat = 0
     private var room: NSRect? = nil
+    private var switchTask: Task<(), Never>? = nil
 
     init(stack: TilingContainer) {
         self.stack = stack
         measureView = NSHostingView(rootView: StackTabsView(model: measureModel, addWindow: {}, select: { _ in }))
         panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        // Just above app windows: a window coming forward would cover the bar and drop its shadow on it, which reads as
-        // the whole bar flickering. Still below floating panels and menus
-        panel.level = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue + 1)
+        panel.level = .normal
         panel.collectionBehavior = [.ignoresCycle, .fullScreenNone]
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
@@ -299,10 +295,12 @@ private final class TabStrip {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         var showAddMenu: () -> Void = {}
+        var holdAbove: () -> Void = {}
         let model = model
         let view = TabStripHostingView(rootView: StackTabsView(model: model, addWindow: { showAddMenu() }) { windowId in
             // Right away, rather than once the window has come forward
             model.front = windowId
+            holdAbove()
             StackTabs.shared.bringForward(windowId)
         })
         // The bar sets its own size. Otherwise the view resizes the window too whenever the tabs change, and the two fight
@@ -311,6 +309,7 @@ private final class TabStrip {
         view.onHover = { [weak self] hovering in self?.model.isHovered = hovering }
         panel.contentView = view
         showAddMenu = { [weak self] in self?.showAddMenu() }
+        holdAbove = { [weak self] in self?.holdAboveWhileSwitching() }
     }
 
     private func showAddMenu() {
@@ -341,9 +340,30 @@ private final class TabStrip {
         if model.fillsWidth != fillsWidth { model.fillsWidth = fillsWidth }
         // In whole points, the way the window server keeps it, so that an unchanged frame compares equal and the bar
         // isn't resized and redrawn after every layout
-        let frame = NSRect(x: room.minX.rounded(), y: room.minY.rounded(), width: min(width, room.width).rounded(), height: room.height.rounded())
+        let frame = NSRect(x: room.minX.rounded(), y: room.minY.rounded(), width: room.width.rounded(), height: room.height.rounded())
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         if !panel.isVisible { panel.orderFrontRegardless() }
+        // Right above the stack's front window, and below whatever is above that, like a Finder window over the stack.
+        // A window coming forward otherwise covers the strip and drops its shadow on it
+        orderAboveFront()
+    }
+
+    private func orderAboveFront() {
+        guard panel.level == .normal, let front = model.front else { return }
+        panel.order(.above, relativeTo: Int(front))
+    }
+
+    /// The window picked comes forward a moment later, over the strip, until the next layout puts the strip back on
+    /// top. Meanwhile its shadow darkens the strip. Above every window for that moment instead
+    private func holdAboveWhileSwitching() {
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.normal.rawValue + 1)
+        switchTask?.cancel()
+        switchTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard let self, !Task.isCancelled else { return }
+            panel.level = .normal
+            orderAboveFront()
+        }
     }
 
     func close() {
@@ -405,34 +425,22 @@ struct StackTabsView: View {
     let select: (UInt32) -> Void
 
     var body: some View {
-        // The front tab meets the window, like a folder tab: square on the window's side, rounded on the other. The rest
-        // are shorter, apart from the window
-        HStack(alignment: model.atTop ? .top : .bottom, spacing: tabsSpacing) {
+        // One strip of glass the width of the stack. The window in front gets a pill; the rest are just their names
+        HStack(spacing: 2) {
             ForEach(model.tabs) { tab in
                 let isFront = tab.windowId == model.front
-                let shape = isFront
-                    ? CornerShape(windowSide: 0, farSide: tabOuterRadius, atTop: model.atTop)
-                    : CornerShape(windowSide: tabOuterRadius - 1, farSide: tabOuterRadius - 1, atTop: model.atTop)
                 // The window in front is in plain sight already
-                StackTabButton(tab: tab, isFront: isFront, badge: isFront ? nil : dock.badges[tab.app], fillsWidth: model.fillsWidth, shape: shape) { select(tab.windowId) }
-                    .frame(height: isFront ? nil : inactiveTabHeight)
-                    .frame(maxHeight: isFront ? .infinity : nil)
-                    .padding(isFront ? [] : farEdge, inactiveInset)
+                StackTabButton(tab: tab, isFront: isFront, badge: isFront ? nil : dock.badges[tab.app], fillsWidth: model.fillsWidth) { select(tab.windowId) }
             }
-            // Out of sight until the bar is hovered, but keeping its room, so that the bar doesn't change width
+            // Out of sight until the strip is hovered
             AddWindowButton(action: addWindow)
-                .frame(height: inactiveTabHeight)
-                .padding(farEdge, inactiveInset)
                 .opacity(model.isHovered ? 1 : 0)
+            Spacer(minLength: 0)
         }
-        .padding(.leading, tabsLeadingInset)
-        .frame(maxWidth: model.fillsWidth ? .infinity : nil, maxHeight: .infinity, alignment: model.atTop ? .topLeading : .bottomLeading)
-        .fixedSize(horizontal: !model.fillsWidth, vertical: false)
+        .padding(stripPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .modifier(StripGlass())
     }
-
-    private var farEdge: Edge.Set { model.atTop ? .top : .bottom }
-    /// Centers the shorter tabs on the front tab's label
-    private var inactiveInset: CGFloat { (stackTabsHeight - inactiveTabHeight) / 2 }
 }
 
 /// A window picked from the "+" menu
@@ -468,7 +476,7 @@ private struct AddWindowButton: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 26)
                 .frame(maxHeight: .infinity)
-                .background(tabFill(isFront: false, isHovered: isHovered), in: CornerShape(windowSide: tabOuterRadius - 1, farSide: tabOuterRadius - 1, atTop: false))
+                .background(tabFill(isFront: false, isHovered: isHovered), in: RoundedRectangle(cornerRadius: pillRadius, style: .continuous))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -485,7 +493,6 @@ private struct StackTabButton: View {
     let badge: String?
     /// The tabs share the bar's width instead of taking what their titles need
     let fillsWidth: Bool
-    let shape: CornerShape
     let select: () -> Void
     @State private var isHovered = false
 
@@ -496,8 +503,8 @@ private struct StackTabButton: View {
                 HStack(spacing: 6) {
                     icon
                     // The app in bold, then the window in a quieter weight: "Dia  Kytöniitty listing"
-                    (Text(tab.app).font(.system(size: 12, weight: .semibold)) + Text(detail).font(.system(size: 12)).foregroundColor(isFront ? .accentColor.opacity(0.75) : .secondary))
-                        .foregroundColor(isFront ? .accentColor : .secondary)
+                    (Text(tab.app).font(.system(size: 12, weight: .semibold)) + Text(detail).font(.system(size: 12)).foregroundColor(.secondary))
+                        .foregroundColor(isFront ? .primary : .secondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: 220, alignment: .leading)
@@ -508,10 +515,9 @@ private struct StackTabButton: View {
             }
             .padding(.horizontal, 10)
             .frame(maxWidth: fillsWidth ? 260 : nil, maxHeight: .infinity, alignment: .leading)
-            .background(tabFill(isFront: isFront, isHovered: isHovered), in: shape)
-            // The others stay quiet until pointed at
-            .opacity(isFront || isHovered ? 1 : 0.7)
-            .contentShape(shape)
+            .background(tabFill(isFront: isFront, isHovered: isHovered), in: pill)
+            .shadow(color: .black.opacity(isFront ? 0.12 : 0), radius: 1.5, y: 0.5)
+            .contentShape(pill)
         }
         .buttonStyle(.plain)
         .highPriorityGesture(
@@ -525,6 +531,8 @@ private struct StackTabButton: View {
         .accessibilityAddTraits(isFront ? [.isButton, .isSelected] : .isButton)
     }
 
+    private var pill: RoundedRectangle { RoundedRectangle(cornerRadius: pillRadius, style: .continuous) }
+
     private var helpText: String {
         let name = tab.title == tab.app ? tab.app : "\(tab.app): \(tab.title)"
         guard let badge else { return name }
@@ -532,7 +540,7 @@ private struct StackTabButton: View {
     }
 
     private var icon: some View {
-        AppIcon(windowId: tab.windowId, size: 14)
+        AppIcon(windowId: tab.windowId, size: 16)
             .overlay(alignment: .topTrailing) {
                 if badge != nil {
                     Circle()
@@ -555,15 +563,41 @@ private struct StackTabButton: View {
     }
 }
 
-/// Opaque, so that a tab reads the same over any wallpaper or backdrop. The window in front is tinted with the accent
+/// The front tab is a solid pill on the glass, the others show only when pointed at
 @MainActor
 private func tabFill(isFront: Bool, isHovered: Bool) -> Color {
-    Color(nsColor: NSColor(name: nil) { appearance in
-        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let base = NSColor(white: isDark ? 0.2 : 0.925, alpha: 1)
-        if isFront { return base.blended(withFraction: isDark ? 0.3 : 0.14, of: .controlAccentColor) ?? base }
-        return isHovered ? base.blended(withFraction: 0.06, of: isDark ? .white : .black) ?? base : base
-    })
+    if isFront {
+        return Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(white: 1, alpha: 0.18) : .white
+        })
+    }
+    return isHovered ? Color.primary.opacity(0.07) : .clear
+}
+
+/// Liquid Glass where there is, a blur of what's behind before macOS 26
+private struct StripGlass: ViewModifier {
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: stripRadius, style: .continuous)
+        if #available(macOS 26, *) {
+            content.glassEffect(.regular, in: shape)
+        } else {
+            content
+                .background(StripBlur().clipShape(shape))
+                .overlay(shape.strokeBorder(Color.primary.opacity(0.08)))
+        }
+    }
+}
+
+private struct StripBlur: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }
 
 /// A rectangle with one corner radius on its leading side and another on its trailing side.
@@ -587,25 +621,4 @@ struct TabShape: Shape {
     }
 }
 
-/// A rectangle with one corner radius on the side toward the window and another on the far side
-struct CornerShape: Shape {
-    let windowSide: CGFloat
-    let farSide: CGFloat
-    /// Tabs above the window: the window is below them
-    let atTop: Bool
-
-    func path(in rect: CGRect) -> Path {
-        let top = min(atTop ? farSide : windowSide, rect.height / 2, rect.width / 2)
-        let bottom = min(atTop ? windowSide : farSide, rect.height / 2, rect.width / 2)
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX + top, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX - top, y: rect.minY))
-        path.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.minY), tangent2End: CGPoint(x: rect.maxX, y: rect.maxY), radius: top)
-        path.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.maxY), tangent2End: CGPoint(x: rect.minX, y: rect.maxY), radius: bottom)
-        path.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.maxY), tangent2End: CGPoint(x: rect.minX, y: rect.minY), radius: bottom)
-        path.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.minY), tangent2End: CGPoint(x: rect.maxX, y: rect.minY), radius: top)
-        path.closeSubpath()
-        return path
-    }
-}
 

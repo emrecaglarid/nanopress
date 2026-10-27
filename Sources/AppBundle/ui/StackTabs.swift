@@ -402,19 +402,26 @@ struct StackTabsView: View {
                     ? CornerShape(windowSide: 0, farSide: tabOuterRadius, atTop: model.atTop)
                     : CornerShape(windowSide: tabOuterRadius - 1, farSide: tabOuterRadius - 1, atTop: model.atTop)
                 // The window in front is in plain sight already
-                StackTabButton(tab: tab, isFront: isFront, badge: isFront ? nil : dock.badges[tab.app], fillsWidth: model.fillsWidth, shape: shape) { select(tab.windowId) }
+                StackTabButton(tab: tab, isFront: isFront, badge: isFront ? nil : dock.badges[tab.app], fillsWidth: model.fillsWidth, shape: shape, windowEdge: windowEdge) { select(tab.windowId) }
                     .frame(height: isFront ? nil : inactiveTabHeight)
                     .frame(maxHeight: isFront ? .infinity : nil)
+                    .padding(isFront ? [] : farEdge, inactiveInset)
             }
             // Out of sight until the bar is hovered, but keeping its room, so that the bar doesn't change width
             AddWindowButton(action: addWindow)
                 .frame(height: inactiveTabHeight)
+                .padding(farEdge, inactiveInset)
                 .opacity(model.isHovered ? 1 : 0)
         }
         .padding(.leading, tabsLeadingInset)
         .frame(maxWidth: model.fillsWidth ? .infinity : nil, maxHeight: .infinity, alignment: model.atTop ? .topLeading : .bottomLeading)
         .fixedSize(horizontal: !model.fillsWidth, vertical: false)
     }
+
+    private var windowEdge: Edge.Set { model.atTop ? .bottom : .top }
+    private var farEdge: Edge.Set { model.atTop ? .top : .bottom }
+    /// Centers the shorter tabs on the front tab's label
+    private var inactiveInset: CGFloat { (stackTabsHeight - inactiveTabHeight) / 2 }
 }
 
 /// A window picked from the "+" menu
@@ -468,6 +475,8 @@ private struct StackTabButton: View {
     /// The tabs share the bar's width instead of taking what their titles need
     let fillsWidth: Bool
     let shape: CornerShape
+    /// The front tab's label sits in the part that shows, clear of the window's edge
+    var windowEdge: Edge.Set = []
     let select: () -> Void
     @State private var isHovered = false
 
@@ -478,8 +487,8 @@ private struct StackTabButton: View {
                 HStack(spacing: 6) {
                     icon
                     // The app in bold, then the window in a quieter weight: "Dia  Kytöniitty listing"
-                    (Text(tab.app).font(.system(size: 12, weight: .semibold)) + Text(detail).font(.system(size: 12)).foregroundColor(isFront ? .accentColor.opacity(0.75) : .secondary))
-                        .foregroundColor(isFront ? .accentColor : .primary.opacity(0.75))
+                    (Text(tab.app).font(.system(size: 12, weight: isFront ? .semibold : .medium)) + Text(detail).font(.system(size: 12)).foregroundColor(isFront ? .accentColor.opacity(0.75) : .secondary))
+                        .foregroundColor(isFront ? .accentColor : .secondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .frame(maxWidth: 220, alignment: .leading)
@@ -490,7 +499,10 @@ private struct StackTabButton: View {
             }
             .padding(.horizontal, 10)
             .frame(maxWidth: fillsWidth ? 260 : nil, maxHeight: .infinity, alignment: .leading)
+            .padding(windowEdge, isFront ? tabTuck : 0)
             .background(tabFill(isFront: isFront, isHovered: isHovered), in: shape)
+            // The others stay quiet until pointed at
+            .opacity(isFront || isHovered ? 1 : 0.7)
             .contentShape(shape)
         }
         .buttonStyle(.plain)

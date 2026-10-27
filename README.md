@@ -64,7 +64,7 @@ In Settings, pick how much space goes between your windows, from none to large, 
 - Changes nanopress makes on its own come with Undo.
 - Each display setup keeps its own layout.
 - Apps you don't want tiled, like Finder, can float. See Settings.
-- AI agents that speak MCP can arrange your windows too, if you turn it on in Settings. I'm still working out what for.
+- AI agents that speak MCP can arrange your windows too, if you turn it on in Settings. Not sure how that would be useful, but it's there if you want it.
 
 ## Install
 
@@ -91,6 +91,6 @@ swift build
 
 ## Credits
 
-nanopress is made by Emre Caglar, on [AeroSpace](https://github.com/nikitabobko/AeroSpace) by Nikita Bobko. You can [sponsor AeroSpace](https://github.com/sponsors/nikitabobko).
+nanopress is made by Emre Caglar, on [AeroSpace](https://github.com/nikitabobko/AeroSpace) by Nikita Bobko. If you find this useful, consider [sponsoring AeroSpace](https://github.com/sponsors/nikitabobko).
 
 MIT licensed. See [LICENSE.txt](./LICENSE.txt) and [legal/](./legal).

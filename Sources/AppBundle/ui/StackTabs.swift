@@ -5,11 +5,11 @@ import SwiftUI
 /// Room above a stack for its tabs, including the gap between the tabs and the windows
 let stackTabsHeight: CGFloat = 32
 private let tabsGap: CGFloat = 4
-/// Around the tabs, inside the strip
-private let stripPadding: CGFloat = 3
-private let pillRadius: CGFloat = 7
-/// Concentric with the pills inside it
-private let stripRadius: CGFloat = pillRadius + stripPadding
+/// The pill fills the strip's height, so they share a radius
+private let stripRadius: CGFloat = 9
+/// Clear room around the glass inside the strip's window. Glass draws a little past its shape, and the window's edge
+/// would cut that off at the corners
+private let glassMargin: CGFloat = 6
 
 /// Every stack on screen gets a row of tabs above it, one per window, like browser tabs. A stack otherwise looks like a
 /// single window, and the windows behind it are easy to forget.
@@ -338,11 +338,16 @@ private final class TabStrip {
         measureView.layoutSubtreeIfNeeded() // So that the size is measured with the tabs just set
         let width = measureView.fittingSize.width
         // Too many tabs to hug: they share the whole width instead
-        let fillsWidth = width > room.width
+        let fillsWidth = width > room.width + 2 * glassMargin
         if model.fillsWidth != fillsWidth { model.fillsWidth = fillsWidth }
         // In whole points, the way the window server keeps it, so that an unchanged frame compares equal and the bar
         // isn't resized and redrawn after every layout
-        let frame = NSRect(x: room.minX.rounded(), y: room.minY.rounded(), width: min(width, room.width).rounded(), height: room.height.rounded())
+        let frame = NSRect(
+            x: (room.minX - glassMargin).rounded(),
+            y: (room.minY - glassMargin).rounded(),
+            width: min(width, room.width + 2 * glassMargin).rounded(),
+            height: (room.height + 2 * glassMargin).rounded(),
+        )
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         if !panel.isVisible { panel.orderFrontRegardless() }
         // Right above the stack's front window, and below whatever is above that, like a Finder window over the stack.
@@ -436,10 +441,10 @@ struct StackTabsView: View {
             }
             AddWindowButton(action: addWindow)
         }
-        .padding(stripPadding)
         .frame(maxWidth: model.fillsWidth ? .infinity : nil, maxHeight: .infinity, alignment: .leading)
         .modifier(StripGlass())
         .fixedSize(horizontal: !model.fillsWidth, vertical: false)
+        .padding(glassMargin)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
@@ -477,7 +482,7 @@ private struct AddWindowButton: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 26)
                 .frame(maxHeight: .infinity)
-                .background(tabFill(isFront: false, isHovered: isHovered), in: RoundedRectangle(cornerRadius: pillRadius, style: .continuous))
+                .background(tabFill(isFront: false, isHovered: isHovered), in: RoundedRectangle(cornerRadius: stripRadius, style: .continuous))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -532,7 +537,7 @@ private struct StackTabButton: View {
         .accessibilityAddTraits(isFront ? [.isButton, .isSelected] : .isButton)
     }
 
-    private var pill: RoundedRectangle { RoundedRectangle(cornerRadius: pillRadius, style: .continuous) }
+    private var pill: RoundedRectangle { RoundedRectangle(cornerRadius: stripRadius, style: .continuous) }
 
     private var helpText: String {
         let name = tab.title == tab.app ? tab.app : "\(tab.app): \(tab.title)"

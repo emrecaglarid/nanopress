@@ -154,6 +154,7 @@ private struct DropPreviewView: View {
         let target = preview.targetRect.map { local($0).insetBy(dx: regionInset, dy: regionInset) }
         let middle = preview.targetRect.map { local(dropZoneMiddle(of: $0)) }
         let isMiddle = preview.action == .stack || preview.action == .swap
+        let titleY = titleY(in: landing, clearOf: isMiddle ? nil : middle)
         ZStack(alignment: .topLeading) {
             if let origin = preview.originRect {
                 OriginRegion()
@@ -182,7 +183,7 @@ private struct DropPreviewView: View {
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
                 .fixedSize()
-                .position(x: landing.midX, y: landing.minY + min(120, landing.height * 0.22))
+                .position(x: landing.midX, y: titleY)
             if let middle {
                 MiddleZone(active: isMiddle ? preview.action : nil, color: hintColor, tabsAtTop: settings.tabsPosition == .top)
                     .placed(in: middle)
@@ -197,10 +198,19 @@ private struct DropPreviewView: View {
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.25), radius: 2, y: 1)
                 .fixedSize()
-                .position(x: landing.midX, y: landing.minY + min(120, landing.height * 0.22) + 26)
+                .position(x: landing.midX, y: titleY + 26)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    /// Near the top of the zone, and below the middle box where the zone's top half runs under it, like the bottom half
+    /// of a window
+    private func titleY(in landing: CGRect, clearOf middle: CGRect?) -> CGFloat {
+        let y = landing.minY + min(120, landing.height * 0.22)
+        // The title, and the Tab line under it
+        guard let middle, (middle.minX...middle.maxX).contains(landing.midX), y + 40 > middle.minY, y - 14 < middle.maxY else { return y }
+        return middle.maxY + 30
     }
 
     /// Dark on a light scrim, white once it's dimmed enough to be dark

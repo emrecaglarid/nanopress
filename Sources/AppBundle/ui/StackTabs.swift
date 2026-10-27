@@ -233,7 +233,7 @@ final class StackTabs {
             zone = .stack
         } else {
             zone = dropZone(for: point, in: Rect(topLeftX: tile.rect.minX, topLeftY: tile.rect.minY, width: tile.rect.width, height: tile.rect.height))
-            if isOwnStack && zone == .stack { return nil }
+            if isOwnStack && (zone == .stack || zone == .swap) { return nil }
         }
         let drop = PendingDrop(window: window, workspace: workspace, op: .tile(targetWindowId: target, zone))
         return simulate(drop) != nil ? drop : nil

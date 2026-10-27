@@ -210,9 +210,9 @@ struct LayoutEditor: View {
                 case .split(let direction):
                     zone = .split(direction)
                     highlight = highlight.half(direction)
-                default:
+                case let middle:
                     if isOwnTile { return nil }
-                    zone = NSEvent.modifierFlags.contains(.option) ? .stack : .swap
+                    zone = middle
             }
         }
         let drop = PendingDrop(window: window, workspace: workspace, op: .tile(targetWindowId: targetId, zone, level: level))

@@ -13,6 +13,12 @@ final class DropZonesTest: XCTestCase {
         assertEquals(dropZone(for: CGPoint(x: 950, y: 250), in: rect), .split(.right))
         assertEquals(dropZone(for: CGPoint(x: 500, y: 20), in: rect), .split(.up))
         assertEquals(dropZone(for: CGPoint(x: 500, y: 480), in: rect), .split(.down))
+        // The middle box: stack on its left half, swap on its right
+        let middle = dropZoneMiddle(of: rect.cgRect)
+        assertEquals(dropZone(for: CGPoint(x: middle.midX + 20, y: 250), in: rect), .swap)
+        // Just outside the box splits toward the nearest edge, so there's nowhere that does nothing
+        assertEquals(dropZone(for: CGPoint(x: middle.minX - 10, y: 250), in: rect), .split(.left))
+        assertEquals(dropZone(for: CGPoint(x: 500, y: middle.maxY + 10), in: rect), .split(.down))
     }
 
     func testStackCreatesAccordion() {

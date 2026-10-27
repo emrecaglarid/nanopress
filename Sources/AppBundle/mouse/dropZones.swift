@@ -24,8 +24,6 @@ struct PendingDrop {
     let op: DropOp
 }
 
-/// Fraction of the target window's width/height (measured from each edge) that counts as a split zone
-private let splitZoneFraction: CGFloat = 0.3
 /// Pushing the cursor this close to the screen edge (or into the menu bar or Dock) targets the whole screen
 private let screenEdgeSnapDistance: CGFloat = 12
 
@@ -62,11 +60,21 @@ private struct DropOptions {
 
 func dropZone(for point: CGPoint, in rect: Rect) -> DropZone {
     guard rect.width > 0 && rect.height > 0 else { return .stack }
-    let fx = (point.x - rect.minX) / rect.width
-    let fy = (point.y - rect.minY) / rect.height
-    let edges: [(CGFloat, CardinalDirection)] = [(fx, .left), (1 - fx, .right), (fy, .up), (1 - fy, .down)]
-    guard let (distance, direction) = edges.min(by: { $0.0 < $1.0 }) else { return .stack }
-    return distance < splitZoneFraction ? .split(direction) : .stack
+    // The middle box, drawn on the window while dragging: stack on its left half, swap on its right
+    let middle = dropZoneMiddle(of: rect.cgRect)
+    if middle.contains(point) { return point.x <= middle.midX ? .stack : .swap }
+    // Everywhere else splits toward the nearest edge, measured against the tile's shape: the diagonals divide it in four
+    let fx = (point.x - rect.center.x) / (rect.width / 2)
+    let fy = (point.y - rect.center.y) / (rect.height / 2)
+    if abs(fx) >= abs(fy) { return .split(fx < 0 ? .left : .right) }
+    return .split(fy < 0 ? .up : .down)
+}
+
+/// The middle zone of a tile, a box that stacks or swaps. Big enough to hit, small enough to leave room for the edges
+func dropZoneMiddle(of rect: CGRect) -> CGRect {
+    let width = min(min(max(rect.width * 0.36, 140), 240), rect.width * 0.6)
+    let height = min(min(max(rect.height * 0.22, 72), 120), rect.height * 0.5)
+    return CGRect(x: rect.midX - width / 2, y: rect.midY - height / 2, width: width, height: height)
 }
 
 /// Called on every move event of a tiling or floating window dragged with the mouse. Only previews the drop; see takePendingDrop
@@ -166,10 +174,12 @@ private func findDropOptions(_ window: Window, at point: CGPoint) -> DropOptions
        let rect = targetWindow.stackOrSelf.lastAppliedLayoutPhysicalRect
     {
         var zone = snapEdge.map { .split($0) } ?? dropZone(for: point, in: rect)
-        // Floating windows are tiled only via the edge zones. The center keeps them floating
-        if isFloating && zone == .stack { return nil }
+        // Floating windows are tiled only via the edge zones. The middle keeps them floating
+        if isFloating && (zone == .stack || zone == .swap) { return nil }
+        // ⌥ still turns stacking into swapping, for those who learned it
+        if zone == .stack && NSEvent.modifierFlags.contains(.option) { zone = .swap }
         // Swapping with a window of another workspace would need to preview two workspaces at once
-        if zone == .stack && NSEvent.modifierFlags.contains(.option) && window.nodeWorkspace == workspace { zone = .swap }
+        if zone == .swap && window.nodeWorkspace != workspace { zone = .stack }
         let key = DropOptions.Key(targetWindowId: targetWindow.windowId, zone: zone, snapsToScreen: snapEdge != nil)
         guard case .split(let direction) = zone else {
             return DropOptions(key: key, options: [(PendingDrop(window: window, workspace: workspace, op: .tile(targetWindowId: targetWindow.windowId, zone)), nil)], defaultIndex: 0)
@@ -272,10 +282,15 @@ func previewDrop(_ drop: PendingDrop, group: DropPreview.Group?, optionIndex: In
     if let origin = dragSession?.origin, origin.workspace == drop.workspace, !origin.rect.isClose(to: landingRect) {
         originRect = origin.rect
     }
+    var targetRect: CGRect? = nil
+    if case .tile(let targetWindowId, _, _) = drop.op {
+        targetRect = Window.get(byId: targetWindowId)?.stackOrSelf.lastAppliedLayoutPhysicalRect?.cgRect
+    }
     return DropPreview(
         action: action,
         targetName: targetName,
         monitorRect: monitor.rect.cgRect,
+        targetRect: targetRect,
         originRect: originRect?.cgRect,
         landingRect: landingRect.cgRect,
         landingStackCount: landingTile.allWindows.count,

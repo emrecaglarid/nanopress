@@ -29,6 +29,8 @@ struct DropPreview: Equatable {
     var action: Action
     var targetName: String?
     var monitorRect: CGRect
+    /// The window under the cursor, where it is now. It's dimmed, with the drop zones drawn on it
+    var targetRect: CGRect?
     /// The empty tile the window was dragged out of
     var originRect: CGRect?
     /// Where the dragged window ends up. It's the whole stack if the window ends up in one
@@ -113,8 +115,6 @@ private struct ArrangementPreview: Equatable {
 
 private let regionInset: CGFloat = 4
 private let regionRadius: CGFloat = 10
-/// How far the card behind a stack peeks out
-private let stackPeek: CGFloat = 12
 
 private struct DropOverlayView: View {
     @ObservedObject var model: DropOverlayModel
@@ -138,35 +138,47 @@ private struct DropOverlayView: View {
     }
 }
 
+/// Two layers: the window under the cursor dimmed and blurred, with its drop zones in white, and the zone under the
+/// cursor in blue, drawn as where the window lands, with what it does written inside. The middle box is cut out of the
+/// blue, so that it always keeps the window's tint
 private struct DropPreviewView: View {
     let preview: DropPreview
 
     var body: some View {
         let landing = local(preview.landingRect).insetBy(dx: regionInset, dy: regionInset)
+        let target = preview.targetRect.map { local($0).insetBy(dx: regionInset, dy: regionInset) }
+        let middle = preview.targetRect.map { local(dropZoneMiddle(of: $0)) }
+        let isMiddle = preview.action == .stack || preview.action == .swap
         ZStack(alignment: .topLeading) {
             if let origin = preview.originRect {
                 OriginRegion()
                     .placed(in: local(origin).insetBy(dx: regionInset, dy: regionInset))
                     .transition(.opacity)
             }
-            ForEach(preview.ghosts) { ghost in
-                GhostTile(ghost: ghost)
-                    .placed(in: local(ghost.rect).insetBy(dx: regionInset, dy: regionInset))
-                    .transition(.opacity)
+            if let target {
+                TargetScrim()
+                    .placed(in: target)
+                ZoneArrows(target: target)
             }
-            if preview.landingStackCount > 1 {
-                // Only the top edge peeks out. The front card is translucent, so the rest would show through
-                LandingRegion(isBackCard: true)
-                    .mask(alignment: .top) { Rectangle().frame(height: stackPeek) }
-                    .placed(in: CGRect(x: landing.minX + 2 * stackPeek, y: landing.minY, width: landing.width - 4 * stackPeek, height: landing.height - stackPeek))
-                LandingRegion(isBackCard: false)
-                    .placed(in: CGRect(x: landing.minX, y: landing.minY + stackPeek, width: landing.width, height: landing.height - stackPeek))
-            } else {
-                LandingRegion(isBackCard: false)
-                    .placed(in: landing)
+            if !isMiddle {
+                LandingZone(landing: landing, hole: middle)
+                Text(preview.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .fixedSize()
+                    .position(x: landing.midX, y: landing.minY + min(120, landing.height * 0.22))
             }
-            DropHoverCard(preview: preview)
-                .position(x: landing.midX, y: landing.midY)
+            if let middle {
+                MiddleZone(active: isMiddle ? preview.action : nil)
+                    .placed(in: middle)
+            }
+            if preview.optionCount > 1 {
+                Text("\(preview.optionIndex + 1) of \(preview.optionCount), Tab for the next")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .fixedSize()
+                    .position(x: landing.midX, y: landing.minY + min(120, landing.height * 0.22) + 22)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -174,6 +186,101 @@ private struct DropPreviewView: View {
     private func local(_ rect: CGRect) -> CGRect {
         rect.offsetBy(dx: -preview.monitorRect.minX, dy: -preview.monitorRect.minY)
     }
+}
+
+/// Mutes whatever the window shows, so that the hints on top read over any content
+private struct TargetScrim: View {
+    var body: some View {
+        BehindWindowBlur()
+            .overlay(Color.black.opacity(0.35))
+            .clipShape(RoundedRectangle(cornerRadius: regionRadius, style: .continuous))
+    }
+}
+
+/// The edge zones, one arrow each
+private struct ZoneArrows: View {
+    let target: CGRect
+
+    var body: some View {
+        let inset: CGFloat = 36
+        ZStack(alignment: .topLeading) {
+            arrow("arrow.up").position(x: target.midX, y: target.minY + inset)
+            arrow("arrow.down").position(x: target.midX, y: target.maxY - inset)
+            arrow("arrow.left").position(x: target.minX + inset, y: target.midY)
+            arrow("arrow.right").position(x: target.maxX - inset, y: target.midY)
+        }
+    }
+
+    private func arrow(_ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.85))
+    }
+}
+
+/// Stack on the left half, swap on the right. The half under the cursor fills in
+private struct MiddleZone: View {
+    let active: DropPreview.Action?
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        HStack(spacing: 0) {
+            half("Stack", isActive: active == .stack)
+            Rectangle().fill(.white.opacity(0.7)).frame(width: 1.5)
+            half("Swap", isActive: active == .swap)
+        }
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(.white.opacity(0.7), lineWidth: 1.5))
+    }
+
+    private func half(_ title: String, isActive: Bool) -> some View {
+        Text(title)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.white.opacity(isActive ? 1 : 0.9))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(isActive ? Color.accentColor.opacity(0.85) : .clear)
+    }
+}
+
+/// Where the window lands, in blue, with the middle box cut out
+private struct LandingZone: View {
+    let landing: CGRect
+    let hole: CGRect?
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: regionRadius, style: .continuous)
+        ZStack(alignment: .topLeading) {
+            shape
+                .fill(Color.accentColor.opacity(0.72))
+                .placed(in: landing)
+            shape
+                .strokeBorder(.white.opacity(0.6), lineWidth: 1.5)
+                .placed(in: landing)
+        }
+        // The whole overlay, so that the mask below is in the same coordinates as `hole`
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .mask {
+            // Even-odd: the landing rect without the middle box
+            Path { path in
+                path.addRect(CGRect(x: -10_000, y: -10_000, width: 20_000, height: 20_000))
+                if let hole { path.addRoundedRect(in: hole, cornerSize: CGSize(width: 12, height: 12), style: .continuous) }
+            }
+            .fill(style: FillStyle(eoFill: true))
+        }
+    }
+}
+
+/// A see-through blur of what's behind the overlay. SwiftUI's materials only blur what's inside the window
+private struct BehindWindowBlur: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }
 
 /// Every tile in the landing style, with the app name as prominent as the hover card's title
@@ -201,27 +308,7 @@ private struct ArrangementPreviewView: View {
     }
 }
 
-private struct GhostTile: View {
-    let ghost: DropPreview.Ghost
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: regionRadius, style: .continuous)
-        shape
-            .fill(Color.primary.opacity(0.06))
-            .overlay(shape.strokeBorder(Color.primary.opacity(0.45), lineWidth: 1.5))
-            .overlay {
-                Text(ghost.stackCount > 1 ? "\(ghost.name) +\(ghost.stackCount - 1)" : ghost.name)
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Color.primary.opacity(0.06), in: Capsule())
-                    .fixedSize()
-            }
-    }
-}
-
-/// Below the ghosts: the tiles that fill the gap are drawn on top of it
+/// The empty tile the window was dragged out of
 private struct OriginRegion: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: regionRadius, style: .continuous)
@@ -242,117 +329,32 @@ private struct LandingRegion: View {
     }
 }
 
-private struct DropHoverCard: View {
-    let preview: DropPreview
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .id(icon)
-                    .transition(reduceMotion ? .opacity : iconTransition)
-                Text(title)
-                    .font(.system(size: 16, weight: .semibold))
-            }
-            switch preview.action {
-                case .stack: KeyHint(before: "Hold", key: "⌥", keyName: "Option", after: "to swap")
-                case .swap: KeyHint(before: "Release", key: "⌥", keyName: "Option", after: "to stack")
-                case .split, .moveToWorkspace: EmptyView()
-            }
-            if preview.optionCount > 1 {
-                HStack(spacing: 6) {
-                    Text("\(preview.optionIndex + 1) of \(preview.optionCount)")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                    KeyHint(before: nil, key: "Tab", keyName: "Tab", after: "next")
+extension DropPreview {
+    /// What the drop does, in words
+    var title: String {
+        let target = targetName ?? "window"
+        switch action {
+            case .split(.left, .screen): return "Left side of screen"
+            case .split(.right, .screen): return "Right side of screen"
+            case .split(.up, .screen): return "Top of screen"
+            case .split(.down, .screen): return "Bottom of screen"
+            case .split(let direction, let group):
+                let anchor = switch group {
+                    case .row: "\(target)'s row"
+                    case .column: "\(target)'s column"
+                    case .screen, nil: target
                 }
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 11)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).strokeBorder(Color.primary.opacity(0.1), lineWidth: 1))
-        .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
-        .shadow(color: .black.opacity(0.18), radius: 16, y: 8)
-        .fixedSize()
-    }
-
-    private var targetName: String { preview.targetName ?? "window" }
-
-    private var title: String {
-        switch preview.action {
-            case .split(.left, .screen): "Left side of screen"
-            case .split(.right, .screen): "Right side of screen"
-            case .split(.up, .screen): "Top of screen"
-            case .split(.down, .screen): "Bottom of screen"
-            case .split(let direction, let group): splitTitle(direction, group)
-            case .stack: "Stack on \(targetName)"
-            case .swap: "Swap with \(targetName)"
-            case .moveToWorkspace(let workspace): "Move to workspace \(workspace)"
+                return switch direction {
+                    case .left: "Left of \(anchor)"
+                    case .right: "Right of \(anchor)"
+                    case .up: "Above \(anchor)"
+                    case .down: "Below \(anchor)"
+                }
+            case .stack: return "Stack on \(target)"
+            case .swap: return "Swap with \(target)"
+            case .moveToWorkspace(let workspace): return "Move to workspace \(workspace)"
         }
     }
-
-    private func splitTitle(_ direction: CardinalDirection, _ group: DropPreview.Group?) -> String {
-        let anchor = switch group {
-            case .row: "\(targetName)'s row"
-            case .column: "\(targetName)'s column"
-            case .screen, nil: targetName
-        }
-        return switch direction {
-            case .left: "Left of \(anchor)"
-            case .right: "Right of \(anchor)"
-            case .up: "Above \(anchor)"
-            case .down: "Below \(anchor)"
-        }
-    }
-
-    private var icon: String {
-        switch preview.action {
-            case .split(.left, _): "rectangle.lefthalf.inset.filled"
-            case .split(.right, _): "rectangle.righthalf.inset.filled"
-            case .split(.up, _): "rectangle.tophalf.inset.filled"
-            case .split(.down, _): "rectangle.bottomhalf.inset.filled"
-            case .stack: "square.stack"
-            case .swap: "arrow.left.arrow.right"
-            case .moveToWorkspace: "macwindow.on.rectangle"
-        }
-    }
-
-    private var iconTransition: AnyTransition {
-        .modifier(active: BlurModifier(radius: 4), identity: BlurModifier(radius: 0))
-            .combined(with: .scale(scale: 0.25))
-            .combined(with: .opacity)
-    }
-}
-
-private struct KeyHint: View {
-    let before: String?
-    let key: String
-    let keyName: String
-    let after: String
-
-    var body: some View {
-        HStack(spacing: 4) {
-            if let before { Text(before) }
-            Text(key)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 4)
-                .frame(minWidth: 18, minHeight: 18)
-                .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-                .accessibilityLabel(keyName)
-            Text(after)
-        }
-        .font(.system(size: 12, weight: .medium, design: .rounded))
-    }
-}
-
-private struct BlurModifier: ViewModifier {
-    let radius: CGFloat
-    func body(content: Content) -> some View { content.blur(radius: radius) }
 }
 
 extension View {

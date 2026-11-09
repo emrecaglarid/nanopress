@@ -149,6 +149,20 @@ private struct SettingsView: View {
                     AgentsSettings(settings: settings)
 
                 case .advanced:
+                    Section("New windows") {
+                        Toggle(isOn: $settings.newWindowsVisit) {
+                            SettingRow("Float new windows first", "A new window floats over your layout, and nothing moves. When you click away, it goes into a stack as a tab. Give it a tile from its note, or hold ⌥ while you drag it to see where it can go.") {
+                                EmptyView()
+                            }
+                        }
+                        if settings.newWindowsVisit && !settings.visitorOutcomes.isEmpty {
+                            Text(visitorSummary)
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                    }
+
                     Section("Drag preview") {
                         SettingRow(nil, "How the window under a dragged window looks. These are for trying out values and will go once they're settled.") {
                             VStack(alignment: .leading, spacing: 8) {
@@ -175,12 +189,19 @@ private struct SettingsView: View {
                     Section {
                         about
                     }
-
             }
         }
         .formStyle(.grouped)
         .frame(width: 520)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// How visits ended so far, to see whether floating first fits how windows get used
+    private var visitorSummary: String {
+        let closed = settings.visitorCount(.closed)
+        let tucked = settings.visitorCount(.tucked)
+        let tiled = settings.visitorCount(.tiled)
+        return "So far \(closed) closed while floating, \(tucked) went into a tab, \(tiled) got a tile."
     }
 
     private var spacingDetail: String {
@@ -449,14 +470,7 @@ private struct ChoiceCard<Preview: View>: View {
     let title: String
     let isSelected: Bool
     let select: () -> Void
-    let preview: Preview
-
-    init(title: String, isSelected: Bool, select: @escaping () -> Void, @ViewBuilder preview: () -> Preview) {
-        self.title = title
-        self.isSelected = isSelected
-        self.select = select
-        self.preview = preview()
-    }
+    @ViewBuilder let preview: Preview
 
     var body: some View {
         Button(action: select) {

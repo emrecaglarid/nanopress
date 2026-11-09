@@ -95,6 +95,13 @@ final class StackTabs {
         }
     }
 
+    /// Lights up the tab of a window that just went into a stack, for a moment. See Visitors
+    func markFresh(_ windowId: UInt32) {
+        for strip in strips.values where strip.stack?.allLeafWindowsRecursive.contains(where: { $0.windowId == windowId }) == true {
+            strip.markFresh(windowId)
+        }
+    }
+
     func bringForward(_ windowId: UInt32) {
         guard let token: RunSessionGuard = .isServerEnabled else { return }
         Task.startUnstructured {
@@ -105,7 +112,8 @@ final class StackTabs {
     // MARK: Bringing a window into a stack
 
     /// Every window outside `stack`: the stack's workspace first, then the other workspaces, then minimized windows
-    /// and windows of hidden apps. Where a window is shows quietly after its name. Picking one moves it into the stack
+    /// and windows of hidden apps. Where a window is shows quietly after its name. Picking one moves it into the stack,
+    /// except a parked floating window, which comes back floating. See Parking
     fileprivate func addMenu(for stack: TilingContainer) async -> NSMenu {
         let inStack = Set(stack.allLeafWindowsRecursive.map(\.windowId))
         let here = stack.nodeWorkspace
@@ -181,6 +189,10 @@ final class StackTabs {
                     case is MacosHiddenAppsWindowsContainer:
                         StackTabs.shared.pendingJoins[windowId] = stack
                         window.macApp.nsApp.unhide()
+                    case is FloatingWindowsContainer where Parking.shared.isParked(window):
+                        // A parked Settings window or dialog comes back floating, the way switching to its app brings it back
+                        Parking.shared.unpark(window)
+                        _ = window.focusWindow()
                     default:
                         window.bind(to: stack, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
                         _ = window.focusWindow()
@@ -265,6 +277,8 @@ final class StackTabsModel: ObservableObject {
     @Published var atTop = false
     /// More tabs than fit at their natural width: they share the whole bar. See TabStrip.update
     @Published var fillsWidth = false
+    /// The tab of a window that just went into the stack, lit up for a moment. See StackTabs.markFresh
+    @Published var fresh: UInt32? = nil
 }
 
 /// The panel with the tabs of one stack
@@ -280,6 +294,7 @@ private final class TabStrip {
     private var scrolled: CGFloat = 0
     private var room: NSRect? = nil
     private var switchTask: Task<(), Never>? = nil
+    private var freshTask: Task<(), Never>? = nil
 
     init(stack: TilingContainer) {
         self.stack = stack
@@ -377,6 +392,16 @@ private final class TabStrip {
         panel.orderOut(nil)
     }
 
+    func markFresh(_ windowId: UInt32) {
+        withAnimation(.easeOut(duration: 0.2)) { model.fresh = windowId }
+        freshTask?.cancel()
+        freshTask = Task.startUnstructured { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(2400))
+            guard let self, !Task.isCancelled else { return }
+            withAnimation(.easeIn(duration: 0.6)) { model.fresh = nil }
+        }
+    }
+
     private func scroll(_ event: NSEvent) {
         guard let stack else { return }
         // A mouse wheel moves in notches, a trackpad in small steps that add up
@@ -437,7 +462,7 @@ struct StackTabsView: View {
             ForEach(model.tabs) { tab in
                 let isFront = tab.windowId == model.front
                 // The window in front is in plain sight already
-                StackTabButton(tab: tab, isFront: isFront, badge: isFront ? nil : dock.badges[tab.app], fillsWidth: model.fillsWidth) { select(tab.windowId) }
+                StackTabButton(tab: tab, isFront: isFront, isFresh: tab.windowId == model.fresh, badge: isFront ? nil : dock.badges[tab.app], fillsWidth: model.fillsWidth) { select(tab.windowId) }
             }
             AddWindowButton(action: addWindow)
         }
@@ -495,6 +520,8 @@ private struct AddWindowButton: View {
 private struct StackTabButton: View {
     let tab: StackTab
     let isFront: Bool
+    /// Just went into the stack. See StackTabs.markFresh
+    let isFresh: Bool
     /// The app's Dock badge, like an unread count
     let badge: String?
     /// The tabs share the bar's width instead of taking what their titles need
@@ -522,6 +549,7 @@ private struct StackTabButton: View {
             .padding(.horizontal, 10)
             .frame(maxWidth: fillsWidth ? 260 : nil, maxHeight: .infinity, alignment: .leading)
             .background(tabFill(isFront: isFront, isHovered: isHovered), in: pill)
+            .background(Color.accentColor.opacity(isFresh && !isFront ? 0.45 : 0), in: pill)
             .shadow(color: .black.opacity(isFront ? 0.12 : 0), radius: 1.5, y: 0.5)
             .contentShape(pill)
         }

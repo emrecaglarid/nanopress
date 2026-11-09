@@ -23,9 +23,11 @@ final class MacWindow: Window {
         let before = SimNode.snapshot(workspace)
         lastPlacementStackedOn = nil
         lastPlacementJoinedStackOf = nil
+        lastPlacementVisits = false
         let data = try await unbindAndGetBindingDataForNewWindow(windowId, macApp, workspace, window: nil, .cancellable)
         let stackedOn = lastPlacementStackedOn
         let joinedStackOf = lastPlacementJoinedStackOf
+        let visits = lastPlacementVisits
 
         // atomic synchronous section
         if let existing = allWindowsMap[windowId] { return existing }
@@ -41,6 +43,7 @@ final class MacWindow: Window {
 
         try await debugWindowsIfRecording(window, .cancellable)
         if try await !restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window) {
+            if visits { await Visitors.shared.arrived(window, on: workspace) }
             await runOnWindowDetected(ifConventional: window)
         }
         return window
@@ -116,6 +119,11 @@ final class MacWindow: Window {
 
     @MainActor override func nativeFocus() {
         macApp.nativeFocus(windowId)
+    }
+
+    /// Brings the window above the other windows without activating its app. See Visitors
+    @MainActor func raiseWithoutFocus() {
+        macApp.raiseWithoutFocus(windowId)
     }
 
     override func closeAxWindow() {
@@ -230,6 +238,8 @@ private func unbindAndGetBindingDataForNewWindow(_ windowId: UInt32, _ macApp: M
 // The function is private because it's unsafe. It leaves the window in unbound state
 /// The window whose stack a new window of the same app joined. See unbindAndGetBindingDataForNewTilingWindow
 @MainActor private var lastPlacementJoinedStackOf: Window? = nil
+/// Whether the new window was bound as a visitor. See Visitors
+@MainActor private var lastPlacementVisits = false
 
 @MainActor
 private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?, bundleId: String? = nil) -> BindingData {
@@ -243,6 +253,11 @@ private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, w
     {
         lastPlacementJoinedStackOf = focused
         return BindingData(parent: stack, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+    }
+    // A new window floats over the layout until the user gives it a tile, so that nothing moves for a quick look
+    if window == nil && Visitors.shared.shouldVisit(workspace) {
+        lastPlacementVisits = true
+        return BindingData(parent: workspace.floatingWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
     }
     if window == nil && !isStartup, let data = bindingDataForNewWindowSplittingBiggestTile(workspace, app: bundleId) {
         return data

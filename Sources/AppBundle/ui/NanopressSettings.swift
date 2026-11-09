@@ -21,6 +21,11 @@ final class NanopressSettings: ObservableObject {
     private(set) var learnedWidths: [String: CGFloat] { didSet { defaults?.set(learnedWidths, forKey: "learnedWidths") } }
     /// Apps whose windows float where they open instead of being tiled, by bundle id
     @Published private(set) var floatingApps: [String] { didSet { defaults?.set(floatingApps, forKey: "floatingApps") } }
+    /// Whether a new window floats over the layout until it's given a tile, instead of splitting a tile right away.
+    /// See Visitors
+    @Published var newWindowsVisit: Bool { didSet { defaults?.set(newWindowsVisit, forKey: "newWindowsVisit") } }
+    /// How visits ended, by VisitorOutcome
+    @Published private(set) var visitorOutcomes: [String: Int] { didSet { defaults?.set(visitorOutcomes, forKey: "visitorOutcomes") } }
     /// Whether `nanopress mcp` may answer: an AI agent can then see and arrange windows. Off until the user turns it on
     @Published var allowsAgents: Bool { didSet { defaults?.set(allowsAgents, forKey: "allowsAgents") } }
     /// Window titles can show email subjects and page names. Without them, agents only see app names
@@ -44,6 +49,9 @@ final class NanopressSettings: ObservableObject {
         customBackground = (defaults?.string(forKey: "customBackground") ?? legacyBackground).flatMap(Background.init(rawValue:)) ?? .ocean
         learnedWidths = defaults?.dictionary(forKey: "learnedWidths") as? [String: CGFloat] ?? [:]
         learnedPlaces = defaults?.dictionary(forKey: "learnedPlaces") as? [String: [Double]] ?? [:]
+        // Tests place new windows like AeroSpace does
+        newWindowsVisit = isUnitTest ? false : defaults?.object(forKey: "newWindowsVisit") as? Bool ?? true
+        visitorOutcomes = defaults?.dictionary(forKey: "visitorOutcomes") as? [String: Int] ?? [:]
         allowsAgents = defaults?.bool(forKey: "allowsAgents") ?? false
         sharesTitlesWithAgents = defaults?.bool(forKey: "sharesTitlesWithAgents") ?? false
         namedLayouts = defaults?.dictionary(forKey: "namedLayouts") as? [String: Data] ?? [:]
@@ -87,6 +95,14 @@ final class NanopressSettings: ObservableObject {
                 }
             }
         }
+    }
+
+    func countVisitor(_ outcome: VisitorOutcome) {
+        visitorOutcomes[outcome.rawValue, default: 0] += 1
+    }
+
+    func visitorCount(_ outcome: VisitorOutcome) -> Int {
+        visitorOutcomes[outcome.rawValue] ?? 0
     }
 
     func learnWidth(_ width: CGFloat, for bundleId: String) {

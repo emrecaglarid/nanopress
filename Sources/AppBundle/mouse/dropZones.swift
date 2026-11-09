@@ -196,6 +196,10 @@ private func findDropOptions(_ window: Window, at point: CGPoint) -> DropOptions
     let workspace = monitor.activeWorkspace
     let isFloating = window.parent is FloatingWindowsContainer
     let snapEdge = screenEdge(near: point, monitor)
+    // A floating window is mostly dragged to move it. Over tiles, almost every point is some window's side zone, so it
+    // would get caught everywhere. It moves freely instead, and shows where it can go at a screen edge or with ⌥ held,
+    // like macOS's own tiling
+    if isFloating && snapEdge == nil && !NSEvent.modifierFlags.contains(.option) { return nil }
     // Near the screen edge, the cursor might be outside of every tile (menu bar, Dock, outer gaps)
     let probe = snapEdge == nil ? point : point.clamped(to: monitor.visibleRectPaddedByOuterGaps)
     if let targetWindow = probe.findWindowRecursively(in: workspace.rootTilingContainer, virtual: false, fullscreenCoversAll: false, excluding: window),

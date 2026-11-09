@@ -42,6 +42,8 @@ func runHeavyCompleteRefreshSession(
             try await refresh()
             gcMonitors()
             adaptToDisplaySetup()
+            Visitors.shared.settle()
+            Parking.shared.refresh()
             for monitor in monitorInfos { unstackWhereThereIsRoom(monitor.activeWorkspace) }
 
             updateTrayText()
@@ -157,6 +159,7 @@ enum OptimalHideCorner {
 @MainActor
 private func layoutWorkspaces() async throws {
     if !TrayMenuModel.shared.isEnabled {
+        Parking.shared.releaseAll()
         for workspace in Workspace.all {
             workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
             try await workspace.layoutWorkspace() // Unhide tiling windows from corner
@@ -194,7 +197,8 @@ private func layoutWorkspaces() async throws {
     // to reduce flicker, first unhide visible workspaces, then hide invisible ones
     for monitor in monitors {
         let workspace = monitor.activeWorkspace
-        workspace.allLeafWindowsRecursive.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
+        // Parked windows stay off screen until their app comes forward. See Parking
+        workspace.allLeafWindowsRecursive.filter { !Parking.shared.isParked($0) }.forEach { ($0 as! MacWindow).unhideFromCorner() } // todo as!
         try await workspace.layoutWorkspace()
     }
     for workspace in Workspace.all where !workspace.isVisible {

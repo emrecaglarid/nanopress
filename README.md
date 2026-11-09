@@ -24,6 +24,8 @@ Drag a window by its title bar over another window. The part under the cursor li
 
 While you hold the mouse, Tab switches between splitting the window, its column or the whole screen, and Esc puts the window back.
 
+A floating window just moves when you drag it. Hold ⌥, or drag it to the edge of the screen, to see where it can go.
+
 ## Keep more windows in one spot
 
 <p align="center">
@@ -59,8 +61,9 @@ In Settings, pick how much space goes between your windows, from none to large, 
 ## And also
 
 - Resize a window over its neighbour to stack them; shrink a stacked window from a free edge to take it out.
+- A floating window left behind your tiles, like a Settings window or a dialog, moves off screen instead of peeking through the gaps. Go back to its app and it comes back where it was.
 - Double-click a title bar to give a window the whole screen, and again to bring your layout back.
-- New windows open where you last put that app, and stack once the screen is full.
+- New windows float over your layout, so nothing moves for a quick look. Click away and the window goes into a stack as a tab, behind the window in front, with a ring showing where. Give it a tile from its note, or hold ⌥ while you drag it. You can turn this off in Settings ▸ Advanced.
 - Changes nanopress makes on its own come with Undo.
 - Each display setup keeps its own layout.
 - Apps you don't want tiled, like Finder, can float. See Settings.

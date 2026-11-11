@@ -8,6 +8,9 @@ open class Window: TreeNode, Hashable {
     var isFullscreen: Bool = false
     var noOuterGapsInFullscreen: Bool = false
     var layoutReason: LayoutReason = .standard
+    /// Floats because isDialogHeuristic said so when it was detected. Checked again on every refresh, since an app can
+    /// look like a dialog for a moment (Chromium disables the fullscreen button now and then). See validateStillDialogs
+    var floatsAsDialog: Bool = false
 
     @MainActor
     init(id: UInt32, _ app: any AbstractApp, lastFloatingSize: CGSize?, parent: NonLeafTreeNodeObject, adaptiveWeight: CGFloat, index: Int) {

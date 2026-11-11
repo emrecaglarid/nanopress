@@ -75,6 +75,9 @@ extension AxUiElementMock {
             // Chrome reactivating the fullscreen button
             // todo: consider checking for fullscreen cirteria periodically (downside: will affect performance)
             id != .chrome &&
+            // Chromium too, with the same race. Also while moving between displays when one is plugged in
+            id != .dia &&
+            id != .arc &&
 
             id != .activityMonitor && // Activity Monitor doesn't show fullscreen button
 

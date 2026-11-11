@@ -6,6 +6,27 @@ func normalizeLayoutReason() async throws {
     }
     try await _normalizeLayoutReason(workspace: focus.workspace, windows: macosMinimizedWindowsContainer.children.filterIsInstance(of: Window.self))
     try await validateStillPopups()
+    try await validateStillDialogs()
+}
+
+/// A window that looked like a dialog when it was detected floats, and dialogs can't be dropped into the layout. An app
+/// can look like a dialog for a moment, like Chromium while a display is plugged in, and its window would float for
+/// good. Once it looks like a regular window, it gets a tile
+@MainActor
+private func validateStillDialogs() async throws {
+    for window in MacWindow.allWindows where window.floatsAsDialog {
+        guard window.layoutReason == .standard else { continue } // Minimized, fullscreen or hidden: checked once it's back
+        guard window.parent is FloatingWindowsContainer, let workspace = window.nodeWorkspace else {
+            window.floatsAsDialog = false // Tiled or moved on in some other way
+            continue
+        }
+        let windowLevel = getWindowLevel(for: window.windowId)
+        if try await window.isWindowHeuristic(windowLevel, .cancellable),
+           try await !window.isDialogHeuristic(windowLevel, .cancellable)
+        {
+            try await window.relayoutWindow(on: workspace, .cancellable)
+        }
+    }
 }
 
 @MainActor

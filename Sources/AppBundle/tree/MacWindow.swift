@@ -24,15 +24,18 @@ final class MacWindow: Window {
         lastPlacementStackedOn = nil
         lastPlacementJoinedStackOf = nil
         lastPlacementVisits = false
+        lastPlacementWasDialog = false
         let data = try await unbindAndGetBindingDataForNewWindow(windowId, macApp, workspace, window: nil, .cancellable)
         let stackedOn = lastPlacementStackedOn
         let joinedStackOf = lastPlacementJoinedStackOf
         let visits = lastPlacementVisits
+        let wasDialog = lastPlacementWasDialog
 
         // atomic synchronous section
         if let existing = allWindowsMap[windowId] { return existing }
         let window = MacWindow(windowId, macApp, lastFloatingSize: rect?.size, parent: data.parent, adaptiveWeight: data.adaptiveWeight, index: data.index)
         allWindowsMap[windowId] = window
+        window.floatsAsDialog = wasDialog
         if let joinedStackOf, let stackWorkspace = joinedStackOf.nodeWorkspace {
             let app = macApp.name ?? "window"
             offerUndo("New \(app) window joined its stack", action: "Give it a tile", workspace: stackWorkspace, before: before, near: windowId)
@@ -226,7 +229,10 @@ extension Window {
 @MainActor
 private func unbindAndGetBindingDataForNewWindow(_ windowId: UInt32, _ macApp: MacApp, _ workspace: Workspace, window: Window?, _ cm: CancellationMode) async throws -> BindingData {
     let windowLevel = getWindowLevel(for: windowId)
-    return switch try await macApp.getAxUiElementWindowType(windowId, windowLevel, cm) {
+    let type = try await macApp.getAxUiElementWindowType(windowId, windowLevel, cm)
+    lastPlacementWasDialog = type == .dialog
+    window?.floatsAsDialog = type == .dialog
+    return switch type {
         case .popup: BindingData(parent: macosPopupWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
         case .dialog: BindingData(parent: workspace.floatingWindowsContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
         case .window where NanopressSettings.shared.isFloatingApp(macApp.rawAppBundleId):
@@ -240,6 +246,8 @@ private func unbindAndGetBindingDataForNewWindow(_ windowId: UInt32, _ macApp: M
 @MainActor private var lastPlacementJoinedStackOf: Window? = nil
 /// Whether the new window was bound as a visitor. See Visitors
 @MainActor private var lastPlacementVisits = false
+/// Whether the new window floats because it looked like a dialog. See Window.floatsAsDialog
+@MainActor private var lastPlacementWasDialog = false
 
 @MainActor
 private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, window: Window?, bundleId: String? = nil) -> BindingData {

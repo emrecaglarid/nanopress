@@ -30,7 +30,7 @@ private let screenEdgeSnapDistance: CGFloat = 12
 private struct DragSession {
     let windowId: UInt32
     let initialSize: CGSize?
-    /// Dialogs (see isDialogHeuristic) are never tiled by a drop
+    /// Dialogs (see isDialogHeuristic) are tiled by a drop only with ⌥ held
     let isDialog: Bool
     /// The tile the window was dragged out of. It stays empty until the drop. Nil if the window wasn't tiled on its own
     let origin: (rect: Rect, workspace: Workspace)?
@@ -129,7 +129,8 @@ private func selectNextDropOption() {
 private func refreshDropPreview(_ window: Window) {
     if dragSession?.isCancelled == true { return }
     setCancelHotKeyEnabled(dragSession != nil)
-    guard let session = dragSession, !session.isResize, !session.isDialog,
+    // ⌥ tiles a dialog too: the heuristic can be wrong, and then this is the way out
+    guard let session = dragSession, !session.isResize, !session.isDialog || NSEvent.modifierFlags.contains(.option),
           let found = findDropOptions(window, at: mouseLocation), !found.options.isEmpty
     else {
         pendingDrop = nil

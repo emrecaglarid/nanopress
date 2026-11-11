@@ -22,6 +22,8 @@ struct PendingDrop {
     let window: Window
     let workspace: Workspace
     let op: DropOp
+    /// Where a floating window was before the drag. A swap leaves the window it takes the tile of floating there
+    var floatingFrom: Rect? = nil
 }
 
 /// Pushing the cursor this close to the screen edge (or into the menu bar or Dock) targets the whole screen
@@ -34,6 +36,8 @@ private struct DragSession {
     let isDialog: Bool
     /// The tile the window was dragged out of. It stays empty until the drop. Nil if the window wasn't tiled on its own
     let origin: (rect: Rect, workspace: Workspace)?
+    /// Where a floating window was when the drag started. See PendingDrop.floatingFrom
+    let floatingStartRect: Rect?
     var isResize = false
     /// Tab steps through the options of a split zone. The choice is kept while the cursor stays in the same zone
     var optionsKey: DropOptions.Key? = nil
@@ -87,11 +91,14 @@ func updateDropPreview(_ window: Window) async throws {
     if dragSession?.windowId != window.windowId {
         // Not nil'ed by resizeWithMouse, so it still holds the size from before the drag. Floating windows don't have it
         var initialSize = window.lastAppliedLayoutPhysicalRect?.size
+        let isFloating = window.parent is FloatingWindowsContainer
+        let floatingStartRect = isFloating ? try await window.getAxRect(.cancellable) : nil
+        if initialSize == nil { initialSize = floatingStartRect?.size }
         if initialSize == nil { initialSize = try await window.getAxRect(.cancellable)?.size }
-        let isDialog = window.parent is FloatingWindowsContainer
+        let isDialog = isFloating
             ? try await (window as? MacWindow)?.isDialogHeuristic(getWindowLevel(for: window.windowId), .cancellable) ?? false
             : false
-        dragSession = DragSession(windowId: window.windowId, initialSize: initialSize, isDialog: isDialog, origin: dragOrigin(window))
+        dragSession = DragSession(windowId: window.windowId, initialSize: initialSize, isDialog: isDialog, origin: dragOrigin(window), floatingStartRect: floatingStartRect)
     }
     currentlyManipulatedWithMouseWindowId = window.windowId
     window.lastAppliedLayoutPhysicalRect = nil
@@ -208,15 +215,20 @@ private func findDropOptions(_ window: Window, at point: CGPoint) -> DropOptions
        let rect = targetWindow.stackOrSelf.lastAppliedLayoutPhysicalRect
     {
         var zone = snapEdge.map { .split($0) } ?? dropZone(for: point, in: rect)
-        // Floating windows are tiled only via the edge zones. The middle keeps them floating
-        if isFloating && (zone == .stack || zone == .swap) { return nil }
-        // ⌥ still turns stacking into swapping, for those who learned it
-        if zone == .stack && NSEvent.modifierFlags.contains(.option) { zone = .swap }
+        // ⌥ still turns stacking into swapping, for those who learned it. Not for a floating window: there ⌥ is what
+        // shows the zones at all, and the middle box's left half has to stay Stack
+        if zone == .stack && !isFloating && NSEvent.modifierFlags.contains(.option) { zone = .swap }
         // Swapping with a window of another workspace would need to preview two workspaces at once
         if zone == .swap && window.nodeWorkspace != workspace { zone = .stack }
         let key = DropOptions.Key(targetWindowId: targetWindow.windowId, zone: zone, snapsToScreen: snapEdge != nil)
         guard case .split(let direction) = zone else {
-            return DropOptions(key: key, options: [(PendingDrop(window: window, workspace: workspace, op: .tile(targetWindowId: targetWindow.windowId, zone)), nil)], defaultIndex: 0)
+            let drop = PendingDrop(
+                window: window,
+                workspace: workspace,
+                op: .tile(targetWindowId: targetWindow.windowId, zone),
+                floatingFrom: isFloating ? dragSession?.floatingStartRect : nil,
+            )
+            return DropOptions(key: key, options: [(drop, nil)], defaultIndex: 0)
         }
         var options: [(drop: PendingDrop, group: DropPreview.Group?)] = []
         var layouts: [String] = []
@@ -315,6 +327,8 @@ func previewDrop(_ drop: PendingDrop, group: DropPreview.Group?, optionIndex: In
     var originRect: Rect? = nil
     if let origin = dragSession?.origin, origin.workspace == drop.workspace, !origin.rect.isClose(to: landingRect) {
         originRect = origin.rect
+    } else if case .tile(_, .swap, _) = drop.op, let floatingFrom = drop.floatingFrom {
+        originRect = floatingFrom // Where the window under the cursor goes
     }
     var targetRect: CGRect? = nil
     var zoneRect: CGRect? = nil
@@ -359,8 +373,13 @@ func simulate(_ drop: PendingDrop) -> SimNode? {
                 case .stack:
                     stackWindow(dragged, onto: target.stackOrSelf)
                 case .swap:
-                    guard dragged.parent != nil else { return nil }
-                    swapWindows(dragged, target)
+                    if dragged.parent != nil {
+                        swapWindows(dragged, target)
+                    } else {
+                        // A floating window takes the tile, and the window that was there floats. See applyDrop
+                        let binding = target.unbind()
+                        dragged.bind(to: binding.parent, weight: binding.weight, index: binding.index)
+                    }
                 case .split(let direction):
                     var tile = target.stackOrSelf
                     for _ in 0 ..< level {
@@ -458,6 +477,16 @@ func applyDrop(_ drop: PendingDrop) {
         windows[window.windowId] = window
     }
     sim.materialize(into: drop.workspace, windows: windows)
+    // A floating window swapped into a tile: the window that was there floats where it was
+    let simIds = Set(sim.allWindows.compactMap(\.windowId))
+    for displaced in windows.values where !simIds.contains(displaced.windowId) {
+        displaced.bindAsFloatingWindow(to: drop.workspace)
+        if let from = drop.floatingFrom {
+            displaced.lastFloatingSize = from.size
+            displaced.setAxFrame(from.topLeftCorner, from.size)
+        }
+        (displaced as? MacWindow)?.raiseWithoutFocus()
+    }
     learnPlace(of: window, in: sim, on: drop.workspace)
 }
 

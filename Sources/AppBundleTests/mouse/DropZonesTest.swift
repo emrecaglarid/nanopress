@@ -44,6 +44,30 @@ final class DropZonesTest: XCTestCase {
         assertEquals(root.layoutDescription, .h_tiles([.window(1), .window(0), .window(2)]))
     }
 
+    func testFloatingWindowStacks() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        TestWindow.new(id: 1, parent: root)
+        TestWindow.new(id: 2, parent: root)
+        let floating = TestWindow.new(id: 3, parent: workspace.floatingWindowsContainer)
+
+        applyDrop(PendingDrop(window: floating, workspace: workspace, op: .tile(targetWindowId: 1, .stack)))
+        assertEquals(root.layoutDescription, .h_tiles([.v_accordion([.window(1), .window(3)]), .window(2)]))
+        assertTrue(workspace.floatingWindowsContainer.children.isEmpty)
+    }
+
+    func testFloatingWindowSwapLeavesTheOtherFloating() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        TestWindow.new(id: 1, parent: root)
+        let w2 = TestWindow.new(id: 2, parent: root)
+        let floating = TestWindow.new(id: 3, parent: workspace.floatingWindowsContainer)
+
+        applyDrop(PendingDrop(window: floating, workspace: workspace, op: .tile(targetWindowId: 2, .swap)))
+        assertEquals(root.layoutDescription, .h_tiles([.window(1), .window(3)]))
+        assertTrue(w2.parent === workspace.floatingWindowsContainer)
+    }
+
     func testStackOntoExistingStack() {
         let workspace = Workspace.get(byName: name)
         let root = workspace.rootTilingContainer

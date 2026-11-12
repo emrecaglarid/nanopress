@@ -303,7 +303,8 @@ private final class TabStrip {
         panel.level = .normal
         // Dark glass in either mode: light glass glares on a dark wallpaper, and the white pill stands out on dark
         panel.appearance = NSAppearance(named: .darkAqua)
-        panel.collectionBehavior = [.ignoresCycle, .fullScreenNone]
+        // Transient: Mission Control and App Exposé leave it out. It's part of the stack, not a window of its own
+        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenNone]
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.becomesKeyOnlyIfNeeded = true

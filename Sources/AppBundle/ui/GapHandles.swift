@@ -80,7 +80,8 @@ private final class GapHandle {
     init() {
         panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .normal
-        panel.collectionBehavior = [.ignoresCycle, .fullScreenNone]
+        // Transient: left out of Mission Control, like the stack tabs
+        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenNone]
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
         panel.becomesKeyOnlyIfNeeded = true

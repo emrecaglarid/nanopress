@@ -32,21 +32,6 @@ extension Sequence {
         return .success(result)
     }
 
-    public func mapAllOrFailure<T>(_ transform: (Self.Element) -> ParsedCmd<T>) -> ParsedCmd<[T]> {
-        var result: [T] = []
-        for element in self {
-            switch transform(element) {
-                case .cmd(let element):
-                    result.append(element)
-                case .help(let help):
-                    return .help(help)
-                case .failure(let cmdParsingFailure):
-                    return .failure(cmdParsingFailure)
-            }
-        }
-        return .cmd(result)
-    }
-
     public func mapAllOrFailures<T, E>(_ transform: (Self.Element) -> Result<T, E>) -> Result<[T], [E]> {
         var result: [T] = []
         var errors: [E] = []

@@ -4,7 +4,9 @@ import Foundation
 
 public let socketPath = "/tmp/\(aeroSpaceAppId)-\(unixUserName).sock"
 public let unixUserName = NSUserName()
-public let mainModeId = "main"
+
+public let EXIT_CODE_ZERO: Int32 = 0
+public let EXIT_CODE_TWO: Int32 = 2
 
 @TaskLocal
 public var refreshSessionEvent: RefreshSessionEvent? = nil
@@ -85,13 +87,10 @@ extension MainActor {
 }
 
 public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
-    case configAutoReload
     case globalObserver(String)
     case globalObserverLeftMouseUp
     case menuBarButton
-    case hotkeyBinding
     case startup
-    case socketServer(any CmdArgs)
     /// A tool call from an AI agent, through `nanopress mcp`
     case agent(String)
     case resetManipulatedWithMouse
@@ -109,13 +108,10 @@ public enum RefreshSessionEvent: Sendable, CustomStringConvertible {
     public var description: String {
         switch self {
             case .ax(let str): "ax(\(str))"
-            case .configAutoReload: "configAutoReload"
             case .globalObserver(let str): "globalObserver(\(str))"
             case .globalObserverLeftMouseUp: "globalObserverLeftMouseUp"
-            case .hotkeyBinding: "hotkeyBinding"
             case .menuBarButton: "menuBarButton"
             case .resetManipulatedWithMouse: "resetManipulatedWithMouse"
-            case .socketServer(let args): "socketServer: \(args)"
             case .agent(let tool): "agent(\(tool))"
             case .startup: "startup"
             case .focusFollowsMouse: "focusFollowsMouse"
@@ -155,7 +151,6 @@ public var isUnitTest: Bool { NSClassFromString("XCTestCase") != nil }
 
 extension CaseIterable where Self: RawRepresentable, RawValue == String {
     public static var cliArgsCases: [String] { allCases.map(\.rawValue) }
-    public static var unionLiteral: String { cliArgsCases.joinedCliArgs }
 }
 
 extension [String] {
@@ -173,10 +168,6 @@ public func + <K, V>(lhs: [K: V], rhs: [K: V]) -> [K: V] {
 extension String {
     public func removePrefix(_ prefix: String) -> String {
         hasPrefix(prefix) ? String(dropFirst(prefix.count)) : self
-    }
-
-    public func prependLines(_ prefix: String) -> String {
-        split(separator: "\n").map { prefix + $0 }.joined(separator: "\n")
     }
 }
 
@@ -213,10 +204,3 @@ public func exitT<T>(_ exitCode: Int32, out: String? = nil, err: String? = nil) 
 
 /// 'id' stands for 'identity'. It's a common name in functional programming
 public func id<T>(_ t: T) -> T { t }
-
-@inlinable public func zipIfCountsAreEqual<C1, C2>(_ c1: C1, _ c2: C2) -> Zip2Sequence<C1, C2>? where C1: Collection, C2: Collection {
-    switch c1.count == c2.count {
-        case true: zip(c1, c2)
-        case false: nil
-    }
-}

@@ -26,7 +26,6 @@ struct MenuPanel: View {
             Divider()
             VStack(alignment: .leading, spacing: sectionSpacing) {
                 if viewModel.axPermissionStatus == .granted {
-                    if viewModel.lastReloadConfigContainedWarnings { configWarning }
                     if viewModel.isEnabled {
                         if let change = lastChange.entry { lastChangeRow(change) }
                         layoutMap
@@ -75,21 +74,6 @@ struct MenuPanel: View {
                 WorkspaceChips(revision: viewModel.layoutRevision)
             }
         }
-    }
-
-    private var configWarning: some View {
-        Button {
-            guard let token: RunSessionGuard = .isServerEnabled else { return }
-            Task.startUnstructured {
-                try await runLightSession(.menuBarButton, token) {
-                    let args: ReloadConfigCmdArgs = ReloadConfigCmdArgs(rawArgs: []).copy(\.warningsAsErrors, true)
-                    _ = await reloadConfig_nonCancellable(args: args)
-                }
-            }
-        } label: {
-            Label("Config contains warnings", systemImage: "exclamationmark.triangle.fill")
-        }
-        .buttonStyle(.link)
     }
 
     // MARK: Arrange
@@ -174,8 +158,7 @@ struct MenuPanel: View {
     private func toggleTiling() {
         Task.startUnstructured {
             try await runLightSession(.menuBarButton, .forceRun) {
-                _ = await EnableCommand(args: EnableCmdArgs(rawArgs: [], targetState: .toggle))
-                    .run(.defaultEnv, .emptyStdin)
+                await setTilingEnabled(!viewModel.isEnabled)
             }
         }
     }

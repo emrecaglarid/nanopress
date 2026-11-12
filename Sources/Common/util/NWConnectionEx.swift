@@ -80,17 +80,6 @@ extension NWConnection {
         return .success(data)
     }
 
-    public func readTillError() async {
-        while true {
-            let isError = await withCheckedContinuation { cont in
-                receive(minimumIncompleteLength: 1, maximumLength: Int.max) { data, context, isComplete, error in
-                    cont.resume(returning: error != nil || data == nil || data?.count == 0)
-                }
-            }
-            if isError { return }
-        }
-    }
-
     public func readUInt32() async -> Result<UInt32, NWError> {
         await read(bytes: 4).map { data in
             unsafe data.withUnsafeBytes { pointer in unsafe pointer.load(as: UInt32.self) }

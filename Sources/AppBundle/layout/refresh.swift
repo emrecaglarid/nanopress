@@ -34,7 +34,6 @@ func runHeavyCompleteRefreshSession(
     let res = await Result {
         try await $refreshSessionEvent.withValue(event) {
             let nativeFocused = try await getNativeFocusedWindow(.cancellable)
-            if let nativeFocused { try await debugWindowsIfRecording(nativeFocused, .cancellable) }
             updateFocusCache(nativeFocused)
 
             if shouldLayoutWorkspaces && optimisticallyPreLayoutWorkspaces { try await layoutWorkspaces() }
@@ -48,7 +47,6 @@ func runHeavyCompleteRefreshSession(
             for monitor in monitorInfos { unstackWhereThereIsRoom(monitor.activeWorkspace) }
 
             updateTrayText()
-            SecureInputPanel.shared.refresh()
             try await normalizeLayoutReason()
             if shouldLayoutWorkspaces { try await layoutWorkspaces() }
         }
@@ -72,7 +70,6 @@ func runLightSession<T>(
     activeRefreshTask = nil
     return try await $refreshSessionEvent.withValue(event) {
         let nativeFocused = try await getNativeFocusedWindow(.cancellable)
-        if let nativeFocused { try await debugWindowsIfRecording(nativeFocused, .cancellable) }
         updateFocusCache(nativeFocused)
         let focusBefore = focus.windowOrNil
 
@@ -83,7 +80,6 @@ func runLightSession<T>(
         let focusAfter = focus.windowOrNil
 
         updateTrayText()
-        SecureInputPanel.shared.refresh()
         if !event.isFocusFollowsMouse { try await layoutWorkspaces() }
         if focusBefore != focusAfter {
             focusAfter?.nativeFocus() // syncFocusToMacOs
@@ -96,10 +92,6 @@ func runLightSession<T>(
 struct RunSessionGuard: Sendable {
     @MainActor
     static var isServerEnabled: RunSessionGuard? { TrayMenuModel.shared.isEnabled ? forceRun : nil }
-    @MainActor
-    static func isServerEnabled(orIsEnableCommand command: (any Command)?) -> RunSessionGuard? {
-        command is EnableCommand ? .forceRun : .isServerEnabled
-    }
     @MainActor
     static func checkServerIsEnabledOrDie(
         file: StaticString = #fileID,

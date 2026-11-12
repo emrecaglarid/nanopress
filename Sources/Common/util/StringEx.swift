@@ -1,6 +1,5 @@
 import Foundation
 
-public typealias ResOrStr<T> = Result<T, String>
 extension String: @retroactive LocalizedError { // Make it possible to use String in Result. todo migrate to self written Result monad
     public var errorDescription: String? { self }
 }
@@ -10,10 +9,6 @@ extension Array: @retroactive Error where Element: Error {}
 extension Array: @retroactive LocalizedError where Element: LocalizedError {}
 
 extension String {
-    public func trim() -> String {
-        self.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
     public func prefixLines(with: String) -> String {
         split(separator: "\n", omittingEmptySubsequences: false).map { with + $0 }.joined(separator: "\n")
     }
@@ -23,19 +18,6 @@ extension String {
 }
 
 extension [String] {
-    public func joinErrors() -> String { // todo reuse in config parsing?
-        map { (error: String) -> String in
-            error.split(separator: "\n").enumerated()
-                .map { (i, line) in
-                    i == 0
-                        ? "ERROR: " + line
-                        : "       " + line
-                }
-                .joined(separator: "\n")
-        }
-        .joined(separator: "\n")
-    }
-
     public func joinTruncating(separator: String, length maxLength: Int, trailing: String = "…") -> String {
         if isEmpty {
             return ""
@@ -58,106 +40,4 @@ extension [String] {
         }
         return result
     }
-}
-
-extension [[String]] {
-    public func toPaddingTable(columnSeparator: String = " | ") -> [String] {
-        let pads: [Int] = transposed().map { column in column.map { $0.count }.max().orDie() }
-        return self.map { (row: [String]) in
-            zip(row.enumerated(), pads)
-                .map { (elem: (Int, String), pad: Int) in
-                    elem.0 != row.count - 1 ? elem.1.padding(toLength: pad, withPad: " ", startingAt: 0) : elem.1
-                }
-                .joined(separator: columnSeparator)
-        }
-    }
-}
-
-
-extension String {
-    public func interpolate(with variables: [String: String]) -> Result<String, [String]> {
-        rawInterpolationTokens(interpolationChar: "$")
-            .mapError { [$0] }
-            .flatMap { tokens in
-                tokens.mapAllOrFailures { token in
-                    switch token {
-                        case .literal(let literal): .success(literal)
-                        case .interVar(let value):
-                            variables[value].toResult("Env variable '\(value)' isn't presented in nanopress.app env vars, "
-                                + "or not available for interpolation (because it's mutated)")
-                    }
-                }
-            }
-            .map { $0.joined(separator: "") }
-    }
-
-    public func interpolationTokens<T>(
-        interpolationChar: Character,
-        ofInterVarType type: T.Type,
-    ) -> Result<[InterToken<T>], String> where T: Sendable, T: Equatable, T: CaseIterable, T: RawRepresentable, T.RawValue == String {
-        rawInterpolationTokens(interpolationChar: interpolationChar).flatMap { rawTokens in
-            var result: [InterToken<T>] = []
-            for token in rawTokens {
-                switch token {
-                    case .literal(let literal):
-                        result.append(.literal(literal))
-                    case .interVar(let value):
-                        switch parseEnum(value, type) {
-                            case .success(let interVar): result.append(.interVar(interVar))
-                            case .failure(let err): return .failure(err)
-                        }
-                }
-            }
-            return .success(result)
-        }
-    }
-
-    func rawInterpolationTokens(interpolationChar: Character) -> Result<[RawStringInterToken], String> {
-        var mode: InterpolationParserState = .stringLiteral(currLiteral: "")
-        var result: [RawStringInterToken] = []
-        for char: Character? in (Array(self) + [nil]) {
-            switch (mode, char) { // State machine
-                case (.stringLiteral(let literal), interpolationChar):
-                    mode = .interpolationCharEncountered(prevLiteral: literal)
-                case (.stringLiteral(let literal), let char?):
-                    mode = .stringLiteral(currLiteral: literal + String(char))
-                case (.stringLiteral(let literal), nil):
-                    result.append(.literal(literal))
-                case (.interpolationCharEncountered(let literal), "{"):
-                    mode = .interpolationVariable(currVariable: "")
-                    result.append(.literal(literal))
-                case (.interpolationCharEncountered(let literal), interpolationChar):
-                    mode = .interpolationCharEncountered(prevLiteral: literal + String(interpolationChar))
-                case (.interpolationCharEncountered(let literal), let char?):
-                    mode = .stringLiteral(currLiteral: literal + String(interpolationChar) + String(char))
-                case (.interpolationCharEncountered(let literal), nil):
-                    result.append(.literal(literal + String(interpolationChar)))
-                case (.interpolationVariable(let value), "}"):
-                    result.append(.interVar(value))
-                    mode = .stringLiteral(currLiteral: "")
-                case (.interpolationVariable(let value), "{"):
-                    return .failure("Can't parse '\(value + "{")' inside interpolation (Open curly brace is invalid character)")
-                case (.interpolationVariable(let value), interpolationChar):
-                    return .failure("Can't parse '\(value + .init(interpolationChar))' inside interpolation ('\(interpolationChar)' is disallowed character)")
-                case (.interpolationVariable(let value), let char?):
-                    mode = .interpolationVariable(currVariable: value + .init(char))
-                case (.interpolationVariable, nil):
-                    return .failure("Unbalanced curly braces")
-            }
-        }
-        return .success(result.filter { $0 != .literal("") })
-    }
-}
-
-public enum InterToken<T>: Equatable, Sendable where T: Equatable, T: Sendable {
-    case literal(String)
-    case interVar(T) // "interpolation variable"
-}
-
-typealias RawStringInterToken = InterToken<String>
-
-private enum InterpolationParserState {
-    case stringLiteral(currLiteral: String)
-    case interpolationCharEncountered(prevLiteral: String)
-    case interpolationVariable(currVariable: String)
 }

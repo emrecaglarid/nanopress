@@ -61,13 +61,3 @@ enum Layout: String {
     case tiles
     case accordion
 }
-
-extension String {
-    func parseLayout() -> Layout? {
-        switch Layout(rawValue: self) {
-            case let parsed?: parsed
-            case nil where self == "list": .tiles
-            case nil: nil
-        }
-    }
-}

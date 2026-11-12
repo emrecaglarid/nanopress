@@ -24,7 +24,7 @@ final class DropZonesTest: XCTestCase {
     /// A drag over the gap between two tiles still targets one of them. With the drawn frames it found nothing there,
     /// and the preview went away and came back at every gap
     func testEveryPointBetweenTilesFindsATarget() async throws {
-        let gap: DynamicConfigValue<Int> = .constant(20)
+        let gap = 20
         config.gaps = Gaps(inner: .init(vertical: gap, horizontal: gap), outer: .init(left: gap, bottom: gap, top: gap, right: gap))
         let workspace = Workspace.get(byName: name)
         let root = workspace.rootTilingContainer

@@ -45,10 +45,8 @@ final class MacWindow: Window {
             offerUndo("Stacked \(windowNames([windowId])) on \(windowNames([stackedOn.windowId])), the screen is full", action: "Give it a tile", workspace: workspace, before: before, near: windowId)
         }
 
-        try await debugWindowsIfRecording(window, .cancellable)
         if try await !restoreClosedWindowsCacheIfNeeded(newlyDetectedWindow: window) {
             if visits { await Visitors.shared.arrived(window, on: workspace) }
-            await runOnWindowDetected(ifConventional: window)
         }
         return window
     }
@@ -293,74 +291,6 @@ private func unbindAndGetBindingDataForNewTilingWindow(_ workspace: Workspace, w
             adaptiveWeight: WEIGHT_AUTO,
             index: INDEX_BIND_LAST,
         )
-    }
-}
-
-@MainActor
-func runOnWindowDetected(ifConventional window: Window) async {
-    switch window.windowParentCases {
-        case .tilingContainer, .floatingWindowsContainer, .macosMinimizedWindowsContainer,
-             .macosFullscreenWindowsContainer, .macosHiddenAppsWindowsContainer:
-            let layout = global_layoutForNextDetectedWindow
-            global_layoutForNextDetectedWindow = nil
-            defer {
-                if let layout {
-                    await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [layout]))
-                        .run(.defaultEnv.withWindowId(window.windowId), .emptyStdin)
-                }
-            }
-            if let layout {
-                await LayoutCommand(args: LayoutCmdArgs(rawArgs: [], toggleBetween: [layout]))
-                    .run(.defaultEnv.withWindowId(window.windowId), .emptyStdin)
-            }
-            _ = await onWindowDetected(.defaultEnv, CmdIoImpl.emptyStdinIgnoringOut, window)
-        case .macosPopupWindowsContainer, .unbound:
-            break
-    }
-}
-
-@MainActor
-func onWindowDetected(_ env: CmdEnv, _ io: CmdIo, _ window: Window) async -> Int32ExitCode {
-    broadcastEvent(.windowDetected(
-        windowId: window.windowId,
-        workspace: window.nodeWorkspace?.name,
-        appBundleId: window.app.rawAppBundleId,
-        appName: window.app.name,
-    ))
-    var lastExitCode = Int32ExitCode.succ
-    for callback in config.onWindowDetected where await callback.matches(window) {
-        lastExitCode = await callback.run.run(env.withWindowId(window.windowId), io)
-        if !callback.checkFurtherCallbacks {
-            return lastExitCode
-        }
-    }
-    return lastExitCode
-}
-
-extension WindowDetectedCallback {
-    @MainActor
-    func matches(_ window: Window) async -> Bool {
-        switch self.matcher {
-            case .legacy(let matcher):
-                if let startupMatcher = matcher.duringAeroSpaceStartup, startupMatcher != isStartup {
-                    return false
-                }
-                if let regex = matcher.windowTitleRegexSubstring, (try? await window.getTitle(.nonCancellable))?.contains(caseInsensitiveRegex: regex) != true {
-                    return false
-                }
-                if let appId = matcher.appId, appId != window.app.rawAppBundleId {
-                    return false
-                }
-                if let regex = matcher.appNameRegexSubstring, !(window.app.name ?? "").contains(caseInsensitiveRegex: regex) {
-                    return false
-                }
-                if let workspace = matcher.workspace, workspace != window.nodeWorkspace?.name {
-                    return false
-                }
-                return true
-            case .command(let command):
-                return await command.run(.defaultEnv.withWindowId(window.windowId), .emptyStdin).exitCode.rawValue == 0
-        }
     }
 }
 

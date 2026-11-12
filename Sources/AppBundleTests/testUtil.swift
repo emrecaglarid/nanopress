@@ -1,7 +1,6 @@
 @testable import AppBundle
 import Common
 import Foundation
-import HotKey
 import XCTest
 
 let projectRoot: URL = {
@@ -15,14 +14,12 @@ let projectRoot: URL = {
 
 @MainActor
 func setUpWorkspacesForTests() {
-    config = defaultConfig
-    configUrl = defaultConfigUrl
+    config = Config()
     config.enableNormalizationFlattenContainers = false // Make layout tests more predictable
     config.enableNormalizationOppositeOrientationForNestedContainers = false // Make layout tests more predictable
     config.defaultRootContainerOrientation = .horizontal // Make default layout predictable
 
-    // Don't create any bindings and workspaces for tests
-    config.modes = [mainModeId: Mode(bindings: [:])]
+    // Don't create any workspaces for tests
     config.persistentWorkspaces = []
 
     for workspace in Workspace.all {
@@ -38,66 +35,43 @@ func setUpWorkspacesForTests() {
 
     TestApp.shared.focusedWindow = nil
     TestApp.shared.windows = []
-
-    global_layoutForNextDetectedWindow = nil
 }
 
-extension ParsedCmd {
-    var errorOrNil: String? {
-        return switch self {
-            case .failure(let e): e.msg
-            case .cmd, .help: nil
+extension TreeNode {
+    var layoutDescription: LayoutDescription {
+        return switch nodeCases {
+            case .window(let window): .window(window.windowId)
+            case .workspace(let workspace): .workspace(workspace.children.map(\.layoutDescription))
+            case .floatingWindowsContainer(let container): .floatingWindowsContainer(container.children.map(\.layoutDescription))
+            case .macosMinimizedWindowsContainer: .macosMinimized
+            case .macosFullscreenWindowsContainer: .macosFullscreen
+            case .macosHiddenAppsWindowsContainer: .macosHiddeAppWindow
+            case .macosPopupWindowsContainer: .macosPopupWindowsContainer
+            case .tilingContainer(let container):
+                switch container.layout {
+                    case .tiles:
+                        container.orientation == .h
+                            ? .h_tiles(container.children.map(\.layoutDescription))
+                            : .v_tiles(container.children.map(\.layoutDescription))
+                    case .accordion:
+                        container.orientation == .h
+                            ? .h_accordion(container.children.map(\.layoutDescription))
+                            : .v_accordion(container.children.map(\.layoutDescription))
+                }
         }
     }
-
-    var cmdOrDie: T { cmdOrNil ?? dieT("\(self)") }
 }
 
-func testParseCommandFail(_ command: String, msg expectedMsg: String, exitCode expectedExitCode: Int32, file: StaticString = #filePath, line: UInt = #line) {
-    let parsed = parseCommand(command)
-    switch parsed {
-        case .cmd(let command): XCTFail("\(command) isn't supposed to be parcelable")
-        case .help: die() // todo test help
-        case .failure(let failure):
-            assertEquals(failure, .init(expectedMsg, expectedExitCode), file: file, line: line)
-    }
+enum LayoutDescription: Equatable {
+    case workspace([LayoutDescription])
+    case h_tiles([LayoutDescription])
+    case v_tiles([LayoutDescription])
+    case h_accordion([LayoutDescription])
+    case v_accordion([LayoutDescription])
+    case floatingWindowsContainer([LayoutDescription])
+    case window(UInt32)
+    case macosPopupWindowsContainer
+    case macosMinimized
+    case macosHiddeAppWindow
+    case macosFullscreen
 }
-
-extension WorkspaceCmdArgs {
-    init(target: WorkspaceTarget, autoBackAndForth: Bool? = nil, wrapAround: Bool? = nil) {
-        self = WorkspaceCmdArgs(rawArgs: [])
-        self.target = .initialized(target)
-        self._autoBackAndForth = autoBackAndForth
-        self._wrapAround = wrapAround
-    }
-}
-
-extension MoveNodeToWorkspaceCmdArgs {
-    init(target: WorkspaceTarget, wrapAround: Bool? = nil) {
-        self = MoveNodeToWorkspaceCmdArgs(rawArgs: [])
-        self.target = .initialized(target)
-        self._wrapAround = wrapAround
-    }
-
-    init(workspace: String) {
-        self = MoveNodeToWorkspaceCmdArgs(rawArgs: [])
-        self.target = .initialized(.direct(.parse(workspace).getOrDie()))
-    }
-}
-
-extension HotkeyBinding {
-    init(_ modifiers: NSEvent.ModifierFlags, _ keyCode: Key, _ commands: Shell<any Command>) {
-        let descriptionWithKeyNotation = modifiers.isEmpty
-            ? keyCode.toString()
-            : modifiers.toString() + "-" + keyCode.toString()
-        self.init(modifiers, keyCode, commands, descriptionWithKeyNotation: descriptionWithKeyNotation)
-    }
-}
-
-extension FocusCommand {
-    static func new(direction: CardinalDirection) -> FocusCommand {
-        FocusCommand(args: FocusCmdArgs(rawArgs: [], cardinalOrDfsDirection: .direction(direction)))
-    }
-}
-
-func parseCommand(_ raw: String) -> ParsedCmd<Shell<any Command>> { parseCommand(raw, allowExecAndForget: true, allowEval: true) }

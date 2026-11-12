@@ -44,7 +44,7 @@ private struct AppServerTerminationHandler: TerminationHandler {
             // Use Task.detached to avoid inheriting @MainActor.
             // If @MainActor was inherited, it would cause a deadlock
             Task.detached {
-                await toggleReleaseServerIfDebug(.on)
+                await toggleReleaseServerIfDebug(isEnabled: true)
                 semaphore.signal()
             }
             semaphore.wait()
@@ -94,8 +94,6 @@ extension CGPoint {
     func addingXOffset(_ offset: CGFloat) -> CGPoint { CGPoint(x: x + offset, y: y) }
     func addingYOffset(_ offset: CGFloat) -> CGPoint { CGPoint(x: x, y: y + offset) }
     func addingOffset(_ orientation: Orientation, _ offset: CGFloat) -> CGPoint { orientation == .h ? addingXOffset(offset) : addingYOffset(offset) }
-
-    func getProjection(_ orientation: Orientation) -> Double { orientation == .h ? x : y }
 
     var vectorLength: CGFloat { sqrt(x * x + y * y) }
 

@@ -12,10 +12,23 @@ public final class TrayMenuModel: ObservableObject {
     @Published var isEnabled: Bool = true
     @Published var workspaces: [WorkspaceViewModel] = []
     @Published var experimentalUISettings: ExperimentalUISettings = ExperimentalUISettings()
-    @Published var lastReloadConfigContainedWarnings: Bool = false
     @Published var axPermissionStatus: AxPermissionStatus = .waitingWithPrompt
     /// Changes whenever a window moves to another tile or a tile is resized, so the panel redraws its layout map
     @Published var layoutRevision: Int = 0
+}
+
+/// The switch in the menu bar panel. Floating windows keep the size they have now, for when they float again after
+/// getting a tile
+@MainActor func setTilingEnabled(_ isEnabled: Bool) async {
+    if TrayMenuModel.shared.isEnabled == isEnabled { return }
+    TrayMenuModel.shared.isEnabled = isEnabled
+    if isEnabled {
+        for workspace in Workspace.all {
+            for window in workspace.allLeafWindowsRecursive where window.isFloating {
+                window.lastFloatingSize = (try? await window.getAxSize(.nonCancellable)) ?? window.lastFloatingSize
+            }
+        }
+    }
 }
 
 enum AxPermissionStatus: Equatable {
@@ -27,8 +40,7 @@ enum AxPermissionStatus: Equatable {
 @MainActor func updateTrayText() {
     let sortedMonitors = sortedMonitorInfos
     let focus = focus
-    TrayMenuModel.shared.trayText = (activeMode?.takeIf { $0 != mainModeId }?.first.map { "(\($0.uppercased())) " } ?? "") +
-        sortedMonitors
+    TrayMenuModel.shared.trayText = sortedMonitors
         .map {
             let hasFullscreenWindows = $0.activeWorkspace.allLeafWindowsRecursive.contains { $0.isFullscreen }
             let activeWorkspaceName = hasFullscreenWindows ? "[\($0.activeWorkspace.name)]" : $0.activeWorkspace.name
@@ -53,7 +65,7 @@ enum AxPermissionStatus: Equatable {
             hasFullscreenWindows: hasFullscreenWindows,
         )
     }
-    var items = sortedMonitors.map {
+    TrayMenuModel.shared.trayItems = sortedMonitors.map {
         let hasFullscreenWindows = $0.activeWorkspace.allLeafWindowsRecursive.contains { $0.isFullscreen }
         return TrayItem(
             type: .workspace,
@@ -62,13 +74,6 @@ enum AxPermissionStatus: Equatable {
             hasFullscreenWindows: hasFullscreenWindows,
         )
     }
-    let mode = activeMode?.takeIf { $0 != mainModeId }?.first.map {
-        TrayItem(type: .mode, name: $0.uppercased(), isActive: true, hasFullscreenWindows: false)
-    }
-    if let mode {
-        items.insert(mode, at: 0)
-    }
-    TrayMenuModel.shared.trayItems = items
 }
 
 struct WorkspaceViewModel: Hashable {

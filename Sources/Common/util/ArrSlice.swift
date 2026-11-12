@@ -1,7 +1,5 @@
 import Foundation
 
-public typealias StrArrSlice = ArrSlice<String>
-
 // The default ArraySlice that is shiped with Swift stdlib is wrong (my subjective opinion). Their subscript is not zero-based.
 // Their Slice is not properly encapsulated
 //

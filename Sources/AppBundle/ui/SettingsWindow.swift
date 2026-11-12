@@ -176,15 +176,6 @@ private struct SettingsView: View {
                         }
                     }
 
-                    Section("Config file") {
-                        SettingRow(nil, "Keyboard shortcuts and window rules live here. Reload after you edit it.") {
-                            HStack {
-                                Button("Open Config") { openConfigFile() }
-                                reloadButton
-                            }
-                        }
-                    }
-
                 case .about:
                     Section {
                         about
@@ -246,19 +237,6 @@ private struct SettingsView: View {
         panel.prompt = "Add App"
         guard panel.runModal() == .OK, let url = panel.url, let bundleId = Bundle(url: url)?.bundleIdentifier else { return }
         settings.setFloating(bundleId, true)
-    }
-
-    @ViewBuilder
-    private var reloadButton: some View {
-        if let token: RunSessionGuard = .isServerEnabled {
-            Button("Reload Config") {
-                Task.startUnstructured {
-                    try await runLightSession(.menuBarButton, token) {
-                        _ = await reloadConfig_nonCancellable(args: ReloadConfigCmdArgs(rawArgs: []))
-                    }
-                }
-            }
-        }
     }
 
     private var about: some View {

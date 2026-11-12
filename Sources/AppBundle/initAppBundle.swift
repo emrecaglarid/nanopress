@@ -13,14 +13,12 @@ import Foundation
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 2)
         let startupStart = ContinuousClock.now
         if isDebug {
-            await toggleReleaseServerIfDebug(.off)
+            await toggleReleaseServerIfDebug(isEnabled: false)
             interceptTermination(SIGINT)
             interceptTermination(SIGKILL)
         }
 
-        await bootstrapConfig_nonCancellable()
-        _ = await reloadConfig_nonCancellable()
-
+        syncFocusFollowsMouse(config)
         startUnixSocketServer()
         GlobalObserver.initObserver()
         BackdropPanels.shared.refresh()
@@ -35,27 +33,14 @@ import Foundation
         )
         try await runLightSession(.startup, .forceRun) {
             restoreSavedLayout()
-            _ = await config.afterStartupCommand.run(.defaultEnv, .emptyStdin)
         }
         startupLog.notice("Started in \((ContinuousClock.now - startupStart).milliseconds, privacy: .public) ms")
     }
 }
 
-@MainActor private func bootstrapConfig_nonCancellable() async {
-    let result = await reloadConfig_nonCancellable(forceConfigUrl: defaultConfigUrl)
-    let msg = """
-        Can't load default config. Your installation is probably corrupted.
-        Please don't modify \(defaultConfigUrl.description.singleQuoted)
-
-        \(result.stdout)
-        """
-    check(result.isOk, msg)
-}
-
 var isStartup: Bool { refreshSessionEvent?.isStartup == true }
 
 struct ServerArgs: Sendable {
-    var configLocation: String? = nil
     var isReadOnly: Bool = false
 }
 
@@ -65,10 +50,7 @@ private let serverHelp = """
     OPTIONS:
       -h, --help              Print help
       -v, --version           Print nanopress.app version
-      --config-path <path>    Config path. It will take priority over ~/.nanopress.toml
-                              and ${XDG_CONFIG_HOME}/nanopress/nanopress.toml
-      --read-only             Disable window management.
-                              Useful if you want to use only debug-windows or other query commands.
+      --read-only             Disable window management
     """
 
 nonisolated(unsafe) private var _serverArgs = ServerArgs()
@@ -85,12 +67,6 @@ private func initServerArgs() {
         switch current {
             case "--version", "-v":
                 exit(EXIT_CODE_ZERO, out: "\(aeroSpaceAppVersion) \(gitHash)")
-            case "--config-path":
-                switch args.getOrNil(atIndex: index) {
-                    case let arg?: unsafe _serverArgs.configLocation = arg
-                    case nil: exit(EXIT_CODE_TWO, err: "Missing <path> in --config-path flag")
-                }
-                index += 1
             case "--read-only": // todo rename to '--disabled' and unite with disabled feature
                 unsafe _serverArgs.isReadOnly = true
             case "-NSDocumentRevisionsDebugMode" where isDebug:
@@ -100,8 +76,5 @@ private func initServerArgs() {
             default:
                 exit(EXIT_CODE_TWO, err: "Unrecognized flag \(args.first.orDie().singleQuoted)")
         }
-    }
-    if let path = serverArgs.configLocation, !FileManager.default.fileExists(atPath: path) {
-        exit(EXIT_CODE_TWO, err: "\(path) doesn't exist")
     }
 }

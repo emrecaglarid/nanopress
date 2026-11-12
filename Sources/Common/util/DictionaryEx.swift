@@ -22,9 +22,3 @@ extension Dictionary {
         return result
     }
 }
-
-extension Dictionary where Key: Comparable {
-    public var sortedEntries: [(key: Key, value: Value)] {
-        entries.sortedBy { $0.key }
-    }
-}

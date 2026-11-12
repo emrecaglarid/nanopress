@@ -47,12 +47,4 @@ enum MacOsWindowLevel: Sendable, Equatable {
             default: nil
         }
     }
-
-    func toJson() -> Json {
-        switch self {
-            case .normalWindow: .string("normalWindow")
-            case .alwaysOnTopWindow: .string("alwaysOnTopWindow")
-            case .unknown(let layerNumber): .int(layerNumber)
-        }
-    }
 }

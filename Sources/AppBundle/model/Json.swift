@@ -49,8 +49,6 @@ enum Json: Encodable, Equatable { // todo rename to Dto? (data transfer object)
         }
     }
 
-    static func stringOrNull(_ str: String?) -> Json { str.map(Json.string) ?? .null }
-
     static func int(_ int: Int) -> Json { .int(Int64(exactly: int).orDie()) }
     static func int(_ int: UInt32) -> Json { .int(Int64(exactly: int).orDie()) }
 

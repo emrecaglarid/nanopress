@@ -18,14 +18,15 @@ final class MacWindow: Window {
     @discardableResult
     static func getOrRegister(windowId: UInt32, macApp: MacApp) async throws -> MacWindow {
         if let existing = allWindowsMap[windowId] { return existing }
-        let rect = try await macApp.getAxRect(windowId, .cancellable)
+        let known = prefetchedWindows.removeValue(forKey: windowId)
+        let rect = if let known { known.rect } else { try await macApp.getAxRect(windowId, .cancellable) }
         let workspace = isStartup ? (rect?.center.monitorApproximation ?? mainMonitorInfo).activeWorkspace : focus.workspace
         let before = SimNode.snapshot(workspace)
         lastPlacementStackedOn = nil
         lastPlacementJoinedStackOf = nil
         lastPlacementVisits = false
         lastPlacementWasDialog = false
-        let data = try await unbindAndGetBindingDataForNewWindow(windowId, macApp, workspace, window: nil, .cancellable)
+        let data = try await unbindAndGetBindingDataForNewWindow(windowId, macApp, workspace, window: nil, knownType: known?.type, .cancellable)
         let stackedOn = lastPlacementStackedOn
         let joinedStackOf = lastPlacementJoinedStackOf
         let visits = lastPlacementVisits
@@ -230,9 +231,15 @@ extension Window {
 
 // The function is private because it's unsafe. It leaves the window in unbound state
 @MainActor
-private func unbindAndGetBindingDataForNewWindow(_ windowId: UInt32, _ macApp: MacApp, _ workspace: Workspace, window: Window?, _ cm: CancellationMode) async throws -> BindingData {
-    let windowLevel = getWindowLevel(for: windowId)
-    let type = try await macApp.getAxUiElementWindowType(windowId, windowLevel, cm)
+private func unbindAndGetBindingDataForNewWindow(
+    _ windowId: UInt32,
+    _ macApp: MacApp,
+    _ workspace: Workspace,
+    window: Window?,
+    knownType: AxUiElementWindowType? = nil,
+    _ cm: CancellationMode,
+) async throws -> BindingData {
+    let type = if let knownType { knownType } else { try await macApp.getAxUiElementWindowType(windowId, getWindowLevel(for: windowId), cm) }
     lastPlacementWasDialog = type == .dialog
     window?.floatsAsDialog = type == .dialog
     return switch type {
@@ -355,4 +362,63 @@ extension WindowDetectedCallback {
                 return await command.run(.defaultEnv.withWindowId(window.windowId), .emptyStdin).exitCode.rawValue == 0
         }
     }
+}
+
+// MARK: Reading new windows ahead
+
+/// Frames and kinds of new windows, read for all apps at once. See prefetchNewWindows
+@MainActor private var prefetchedWindows: [UInt32: (rect: Rect?, type: AxUiElementWindowType)] = [:]
+
+/// Reads the frame and kind of every new window before registering them, every app at once. Each app answers on its
+/// own thread, but registration waits on one window at a time: with many windows, or apps slow to answer because
+/// memory is low and they were swapped out, startup waited on each app in turn
+@MainActor
+func prefetchNewWindows(_ windowIdsByApp: [MacApp: [UInt32]]) async -> [(app: String, windows: Int, duration: Duration)] {
+    prefetchedWindows = [:]
+    return await withTaskGroup(of: PrefetchResult.self, returning: [(app: String, windows: Int, duration: Duration)].self) { group in
+        // Like refreshAllAndGetAliveWindowIds: the app can't be sent to the task, so the task looks it up by pid
+        func read(pid: pid_t, name: String, windowIds: [UInt32]) {
+            group.addTask { @Sendable @MainActor in
+                guard let app = MacApp.allAppsMap[pid] else { return PrefetchResult(app: name, windows: [], duration: .zero) }
+                let start = ContinuousClock.now
+                var windows: [PrefetchedWindow] = []
+                for windowId in windowIds {
+                    // Left out on failure: registration then reads it itself, as before
+                    guard let rect = try? await app.getAxRect(windowId, .cancellable),
+                          let type = try? await app.getAxUiElementWindowType(windowId, getWindowLevel(for: windowId), .cancellable)
+                    else { continue }
+                    windows.append(PrefetchedWindow(id: windowId, rect: rect, type: type))
+                }
+                return PrefetchResult(app: name, windows: windows, duration: ContinuousClock.now - start)
+            }
+        }
+        for (app, windowIds) in windowIdsByApp {
+            let new = windowIds.filter { MacWindow.allWindowsMap[$0] == nil }
+            if !new.isEmpty { read(pid: app.pid, name: app.name ?? app.rawAppBundleId ?? "pid \(app.pid)", windowIds: new) }
+        }
+        var timings: [(app: String, windows: Int, duration: Duration)] = []
+        for await result in group {
+            for window in result.windows { prefetchedWindows[window.id] = (window.rect, window.type) }
+            timings.append((result.app, result.windows.count, result.duration))
+        }
+        return timings
+    }
+}
+
+private struct PrefetchedWindow: Sendable {
+    let id: UInt32
+    let rect: Rect?
+    let type: AxUiElementWindowType
+}
+
+private struct PrefetchResult: Sendable {
+    let app: String
+    let windows: [PrefetchedWindow]
+    let duration: Duration
+}
+
+/// Anything not registered after all, like a window that closed meanwhile
+@MainActor
+func forgetPrefetchedWindows() {
+    prefetchedWindows = [:]
 }

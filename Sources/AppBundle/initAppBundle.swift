@@ -8,6 +8,10 @@ import Foundation
         unsafe _isCli = false
         initServerArgs()
         await waitForAccessibilityPermission_nonCancellable()
+        // macOS waits about 6 seconds for an app that doesn't answer. At startup that's per call, and an app that's
+        // stuck, or swapped out because memory is low, held everything up. Its windows are picked up on a later refresh
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 2)
+        let startupStart = ContinuousClock.now
         if isDebug {
             await toggleReleaseServerIfDebug(.off)
             interceptTermination(SIGINT)
@@ -33,6 +37,7 @@ import Foundation
             restoreSavedLayout()
             _ = await config.afterStartupCommand.run(.defaultEnv, .emptyStdin)
         }
+        startupLog.notice("Started in \((ContinuousClock.now - startupStart).milliseconds, privacy: .public) ms")
     }
 }
 

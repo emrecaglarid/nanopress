@@ -1,3 +1,4 @@
+import os
 import AppKit
 import Common
 
@@ -134,6 +135,15 @@ private func refresh() async throws {
             window.garbageCollect(skipClosedWindowsCache: false)
         }
     }
+    let prefetchStart = ContinuousClock.now
+    let timings = await prefetchNewWindows(mapping)
+    defer { forgetPrefetchedWindows() }
+    if isStartup {
+        let total = ContinuousClock.now - prefetchStart
+        let slowest = timings.sorted { $0.duration > $1.duration }.prefix(3)
+            .map { "\($0.app) \($0.duration.milliseconds) ms (\($0.windows) windows)" }.joined(separator: ", ")
+        startupLog.notice("Read \(timings.map(\.windows).reduce(0, +), privacy: .public) windows of \(timings.count, privacy: .public) apps in \(total.milliseconds, privacy: .public) ms. Slowest: \(slowest, privacy: .public)")
+    }
     for (app, windowIds) in mapping {
         for windowId in windowIds {
             try await MacWindow.getOrRegister(windowId: windowId, macApp: app)
@@ -218,4 +228,11 @@ private func normalizeContainers() {
     for workspace in Workspace.all {
         workspace.normalizeContainers()
     }
+}
+
+/// Startup timings, in the system log: `log show --last 10m --predicate 'subsystem == "io.github.emrecaglarid.nanopress"'`
+let startupLog = Logger(subsystem: "io.github.emrecaglarid.nanopress", category: "startup")
+
+extension Duration {
+    var milliseconds: Int { Int(components.seconds * 1000 + components.attoseconds / 1_000_000_000_000_000) }
 }

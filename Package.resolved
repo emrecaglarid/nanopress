@@ -1,5 +1,5 @@
 {
-  "originHash" : "6466a3de6b03a7f9499cc6ad528be037cd42ee688a16c00bd96a3fa208099b1e",
+  "originHash" : "3a4d8cb936c738c451760aaf7db443b524601d221e956ac6764461a1d98568ad",
   "pins" : [
     {
       "identity" : "hotkey",
@@ -11,30 +11,12 @@
       }
     },
     {
-      "identity" : "issoundadditions",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/InerziaSoft/ISSoundAdditions",
-      "state" : {
-        "revision" : "4b555f0354e6c280917bae8a598a258efe87ab98",
-        "version" : "2.0.1"
-      }
-    },
-    {
       "identity" : "swift-collections",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections",
       "state" : {
         "revision" : "7b847a3b7008b2dc2f47ca3110d8c782fb2e5c7e",
         "version" : "1.3.0"
-      }
-    },
-    {
-      "identity" : "tomldecoder",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/dduan/TOMLDecoder",
-      "state" : {
-        "revision" : "fa1103a62b1c08cc08eabc58dda8b55887ff1622",
-        "version" : "0.4.4"
       }
     }
   ],

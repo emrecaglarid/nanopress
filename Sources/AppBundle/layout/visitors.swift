@@ -36,8 +36,11 @@ final class Visitors {
     /// Called once a new window was bound to the floating windows of `workspace` because of shouldVisit
     func arrived(_ window: Window, on workspace: Workspace) async {
         // One visitor at a time. The one before goes into a tab, as if the user had clicked away from it
-        if let previous = visitor, let previousWindow = Window.get(byId: previous.windowId), previousWindow.parent is FloatingWindowsContainer {
-            tuck(previousWindow, on: previous.workspace)
+        // Where it is now: it may have moved to another workspace since it arrived
+        if let previous = visitor, let previousWindow = Window.get(byId: previous.windowId), previousWindow.parent is FloatingWindowsContainer,
+           let workspace = previousWindow.nodeWorkspace
+        {
+            tuck(previousWindow, on: workspace)
         }
         visitor = Visitor(windowId: window.windowId, workspace: workspace)
         if focus.windowOrNil == window { visitor?.wasFocused = true }
@@ -90,7 +93,7 @@ final class Visitors {
     /// Puts `window` into a stack as a tab behind the window in front: in the stack where its app was last put, or
     /// else on the tile used least recently. No tile moves or changes size
     private func tuck(_ window: Window, on workspace: Workspace) {
-        let tiles = windowsByRecency(workspace.rootTilingContainer).map(\.stackOrSelf).uniqueByIdentity()
+        let tiles = tilesByRecency(workspace)
         guard let tile = tuckTarget(tiles, for: window, on: workspace) else {
             // Nothing tiled to go behind any more: it gets the screen
             window.bind(to: workspace.rootTilingContainer, adaptiveWeight: WEIGHT_AUTO, index: INDEX_BIND_LAST)

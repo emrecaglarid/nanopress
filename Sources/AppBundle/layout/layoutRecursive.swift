@@ -112,12 +112,12 @@ extension TilingContainer {
         var point = point
         var virtualPoint = virtual.topLeftCorner
 
-        guard let delta = ((orientation == .h ? width : height) - CGFloat(children.sumOfDouble { $0.getWeight(orientation) }))
-            .div(children.count) else { return }
+        guard !children.isEmpty else { return }
+        let fitted = fittedWeights(children.map { $0.getWeight(orientation) }, to: orientation == .h ? width : height)
 
         let lastIndex = children.indices.last
         for (i, child) in children.enumerated() {
-            child.setWeight(orientation, child.getWeight(orientation) + delta)
+            child.setWeight(orientation, fitted[i])
             let rawGap = context.resolvedGaps.inner.get(orientation).toDouble()
             // Gaps. Consider 4 cases:
             // 1. Multiple children. Layout first child
@@ -129,11 +129,13 @@ extension TilingContainer {
                 i == 0 ? point : point.addingOffset(orientation, rawGap / 2),
                 width: orientation == .h ? child.hWeight - gap : width,
                 height: orientation == .v ? child.vWeight - gap : height,
+                // Across the group, the whole slot of the group, gaps included. The drawn width left a strip of each gap
+                // out of the slots inside nested groups, where a drag found nothing to drop on
                 virtual: Rect(
                     topLeftX: virtualPoint.x,
                     topLeftY: virtualPoint.y,
-                    width: orientation == .h ? child.hWeight : width,
-                    height: orientation == .v ? child.vWeight : height,
+                    width: orientation == .h ? child.hWeight : virtual.width,
+                    height: orientation == .v ? child.vWeight : virtual.height,
                 ),
                 context,
             )
@@ -182,4 +184,14 @@ extension TilingContainer {
             }
         }
     }
+}
+
+/// Sizes that fill `length` exactly. Each one is scaled by the same factor, so sizes keep their proportions and none can
+/// go below zero. AeroSpace added the same amount to each instead, which made small tiles negative, and so invisible,
+/// whenever the sizes added up to much more than the room. Splitting a whole group with a drop does that
+func fittedWeights(_ weights: [CGFloat], to length: CGFloat) -> [CGFloat] {
+    let usable = weights.map { $0.isFinite && $0 > 0 ? $0 : 0 }
+    let total = usable.reduce(0, +)
+    guard total > 0 else { return weights.map { _ in length / CGFloat(max(weights.count, 1)) } }
+    return usable.map { $0 * length / total }
 }

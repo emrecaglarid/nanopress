@@ -71,6 +71,8 @@ final class Parking {
             guard focus.windowOrNil != window, window.parent is FloatingWindowsContainer else { continue }
             parked.insert(window.windowId)
             try? await window.hideInCorner(.bottomRightCorner)
+            // Its app came forward while hiding waited for the window's frame: unpark found nothing to bring back yet
+            if !parked.contains(window.windowId) { window.unhideFromCorner() }
         }
     }
 }

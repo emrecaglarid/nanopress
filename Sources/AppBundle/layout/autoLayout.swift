@@ -309,6 +309,16 @@ private func appCategory(of window: Window) -> String? {
 
 // MARK: Placement of new windows
 
+/// The tiles on screen, most recent first: windows, and stacks as a whole. A stack at the root is one tile too. Drops
+/// treat its windows one by one (see stackOrSelf), but a new window put onto one of them would make a stack inside the
+/// stack
+@MainActor
+func tilesByRecency(_ workspace: Workspace) -> [TreeNode] {
+    let root = workspace.rootTilingContainer
+    if root.layout == .accordion && !root.children.isEmpty { return [root] }
+    return windowsByRecency(root).map(\.stackOrSelf).uniqueByIdentity()
+}
+
 /// A new window splits the biggest tile on the workspace along its longer side: 1 window, 2 side by side, then a
 /// 2 + 1 split and so on. Windows the user already arranged keep their place. Once the screen is full (see
 /// tileCapacity(of:)), it goes on top of the least recent tile instead, like Arrange does with the windows that don't
@@ -316,7 +326,7 @@ private func appCategory(of window: Window) -> String? {
 @MainActor
 func bindingDataForNewWindowSplittingBiggestTile(_ workspace: Workspace, app bundleId: String? = nil) -> BindingData? {
     // Most recent first, so that of tiles about the same size, the one being worked in is split
-    let tiles = windowsByRecency(workspace.rootTilingContainer).map(\.stackOrSelf).uniqueByIdentity()
+    let tiles = tilesByRecency(workspace)
     if tiles.count >= tileCapacity(of: workspace.workspaceMonitor), let leastRecent = tiles.last {
         return bindingDataStacking(onto: leastRecent)
     }
@@ -391,7 +401,7 @@ func unstackWhereThereIsRoom(_ workspace: Workspace) {
         }
     }
     while true {
-        let tiles = windowsByRecency(workspace.rootTilingContainer).map(\.stackOrSelf).uniqueByIdentity()
+        let tiles = tilesByRecency(workspace)
         guard tiles.count < tileCapacity(of: workspace.workspaceMonitor),
               let stack = tiles.lazy.compactMap({ $0 as? TilingContainer }).first(where: { $0.isOverflowStack && $0.children.count > 1 }),
               let window = windowsByRecency(stack).dropFirst().first

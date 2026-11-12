@@ -21,6 +21,70 @@ final class DropZonesTest: XCTestCase {
         assertEquals(dropZone(for: CGPoint(x: 500, y: middle.maxY + 10), in: rect), .split(.down))
     }
 
+    /// A drag over the gap between two tiles still targets one of them. With the drawn frames it found nothing there,
+    /// and the preview went away and came back at every gap
+    func testEveryPointBetweenTilesFindsATarget() async throws {
+        let gap: DynamicConfigValue<Int> = .constant(20)
+        config.gaps = Gaps(inner: .init(vertical: gap, horizontal: gap), outer: .init(left: gap, bottom: gap, top: gap, right: gap))
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        TestWindow.new(id: 0, parent: root)
+        let column = TilingContainer(parent: root, adaptiveWeight: 1, .v, .tiles, index: INDEX_BIND_LAST)
+        TestWindow.new(id: 1, parent: column)
+        TestWindow.new(id: 2, parent: column)
+        try await workspace.layoutWorkspace()
+
+        let area = workspace.workspaceMonitor.visibleRectPaddedByOuterGaps
+        var missesWithDrawnFrames = 0
+        for x in stride(from: area.minX + 1, to: area.maxX - 1, by: 7) {
+            for y in stride(from: area.minY + 1, to: area.maxY - 2, by: 7) {
+                let point = CGPoint(x: x, y: y)
+                XCTAssertNotNil(point.findWindowRecursively(in: root, virtual: true, fullscreenCoversAll: false), "Nothing at \(point)")
+                if point.findWindowRecursively(in: root, virtual: false, fullscreenCoversAll: false) == nil { missesWithDrawnFrames += 1 }
+            }
+        }
+        XCTAssertGreaterThan(missesWithDrawnFrames, 0, "The test needs gaps between the drawn frames")
+    }
+
+    /// Dropping the whole screen's worth of a group makes the sizes add up to twice the screen. Every tile must still
+    /// get a positive share: AeroSpace took the same amount off each, and small tiles went below zero and vanished
+    func testSplittingAGroupKeepsEveryTileVisible() async throws {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        let column = TilingContainer(parent: root, adaptiveWeight: 1020, .v, .tiles, index: INDEX_BIND_LAST)
+        let w6 = TestWindow.new(id: 6, parent: column)
+        TestWindow.new(id: 8, parent: column)
+        TestWindow.new(id: 9, parent: root, adaptiveWeight: 450)
+        TestWindow.new(id: 10, parent: root, adaptiveWeight: 225)
+        TestWindow.new(id: 12, parent: root, adaptiveWeight: 225)
+        try await workspace.layoutWorkspace()
+
+        applyDrop(PendingDrop(window: w6, workspace: workspace, op: .tile(targetWindowId: 8, .split(.right), level: 2)))
+        try await workspace.layoutWorkspace()
+        for window in root.allLeafWindowsRecursive {
+            let rect = window.lastAppliedLayoutPhysicalRect
+            XCTAssertGreaterThan(rect?.width ?? 0, 1, "Window \(window.windowId) is \(String(describing: rect))")
+        }
+    }
+
+    /// In a stack at the root, a window dropped on the middle of another joins that stack, and a window dropped on a
+    /// side splits the stack as a whole. Neither makes a stack inside the stack
+    func testDropsOnAStackAtTheRoot() {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        root.layout = .accordion
+        root.changeOrientation(.v)
+        TestWindow.new(id: 1, parent: root)
+        let w2 = TestWindow.new(id: 2, parent: root)
+        let w3 = TestWindow.new(id: 3, parent: root)
+
+        applyDrop(PendingDrop(window: w3, workspace: workspace, op: .tile(targetWindowId: 1, .stack)))
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .v_accordion([.window(1), .window(2), .window(3)]))
+
+        applyDrop(PendingDrop(window: w2, workspace: workspace, op: .tile(targetWindowId: 1, .split(.right))))
+        assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([.v_accordion([.window(1), .window(3)]), .window(2)]))
+    }
+
     func testStackCreatesAccordion() {
         let workspace = Workspace.get(byName: name)
         let root = workspace.rootTilingContainer

@@ -182,10 +182,11 @@ extension SimNode {
         switch layout {
             case .tiles:
                 var point = point
-                guard let delta = ((orientation == .h ? width : height) - children.map(\.weight).reduce(0, +)).div(children.count) else { return }
+                guard !children.isEmpty else { return }
+                let fitted = fittedWeights(children.map(\.weight), to: orientation == .h ? width : height)
                 let lastIndex = children.indices.last
                 for (i, child) in children.enumerated() {
-                    child.weight += delta
+                    child.weight = fitted[i]
                     let rawGap = gaps.get(orientation).toDouble()
                     let gap = rawGap - (i == 0 ? rawGap / 2 : 0) - (i == lastIndex ? rawGap / 2 : 0)
                     child.layoutRecursive(

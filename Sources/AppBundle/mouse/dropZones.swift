@@ -88,16 +88,20 @@ func dropZoneMiddle(of rect: CGRect) -> CGRect {
 /// Called on every move event of a tiling or floating window dragged with the mouse. Only previews the drop; see takePendingDrop
 @MainActor
 func updateDropPreview(_ window: Window) async throws {
+    // A move event handled after the button went up would start a new drag that no mouse up ends: the preview would
+    // stay on screen, and the next click anywhere would drop. Checked again after every wait for the window's frame
+    guard isLeftMouseButtonDown else { return }
     if dragSession?.windowId != window.windowId {
-        // Not nil'ed by resizeWithMouse, so it still holds the size from before the drag. Floating windows don't have it
-        var initialSize = window.lastAppliedLayoutPhysicalRect?.size
+        // The window's own size, not its tile's: terminals and windows with a minimum size don't fill their tile exactly,
+        // and compared with the tile, every drag of theirs counted as a resize and never showed where it could go
+        let startRect = try await window.getAxRect(.cancellable)
+        let initialSize = startRect?.size ?? window.lastAppliedLayoutPhysicalRect?.size
         let isFloating = window.parent is FloatingWindowsContainer
-        let floatingStartRect = isFloating ? try await window.getAxRect(.cancellable) : nil
-        if initialSize == nil { initialSize = floatingStartRect?.size }
-        if initialSize == nil { initialSize = try await window.getAxRect(.cancellable)?.size }
+        let floatingStartRect = isFloating ? startRect : nil
         let isDialog = isFloating
             ? try await (window as? MacWindow)?.isDialogHeuristic(getWindowLevel(for: window.windowId), .cancellable) ?? false
             : false
+        guard isLeftMouseButtonDown else { return }
         dragSession = DragSession(windowId: window.windowId, initialSize: initialSize, isDialog: isDialog, origin: dragOrigin(window), floatingStartRect: floatingStartRect)
     }
     currentlyManipulatedWithMouseWindowId = window.windowId
@@ -107,6 +111,7 @@ func updateDropPreview(_ window: Window) async throws {
     {
         dragSession?.isResize = true // Dragging the left or top edge also moves the window
     }
+    guard isLeftMouseButtonDown else { return }
     refreshDropPreview(window)
 }
 
@@ -210,7 +215,8 @@ private func findDropOptions(_ window: Window, at point: CGPoint) -> DropOptions
     if isFloating && snapEdge == nil && !NSEvent.modifierFlags.contains(.option) { return nil }
     // Near the screen edge, the cursor might be outside of every tile (menu bar, Dock, outer gaps)
     let probe = snapEdge == nil ? point : point.clamped(to: monitor.visibleRectPaddedByOuterGaps)
-    if let targetWindow = probe.findWindowRecursively(in: workspace.rootTilingContainer, virtual: false, fullscreenCoversAll: false, excluding: window),
+    // Each tile's whole slot, gaps included: with the drawn frames, every gap between tiles hid the preview for a moment
+    if let targetWindow = probe.findWindowRecursively(in: workspace.rootTilingContainer, virtual: true, fullscreenCoversAll: false, excluding: window),
        targetWindow != window,
        let rect = targetWindow.stackOrSelf.lastAppliedLayoutPhysicalRect
     {
@@ -382,6 +388,9 @@ func simulate(_ drop: PendingDrop) -> SimNode? {
                     }
                 case .split(let direction):
                     var tile = target.stackOrSelf
+                    // A window of a stack at the root: the stack is split as a whole, like any other stack, instead of
+                    // making a group inside the stack. Wrapping the root is fine here: materialize rebuilds the root
+                    if let stack = tile.parent, stack.layout == .accordion, stack.isRootContainer { tile = stack }
                     for _ in 0 ..< level {
                         guard let parent = tile.parent, parent.isContainer else { return nil }
                         tile = parent
@@ -563,6 +572,10 @@ func stackWindow(_ window: SimNode, onto tile: SimNode) {
     if window.parent != nil { window.unbind() }
     if tile.layout == .accordion {
         window.bind(to: tile, weight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
+    } else if let stack = tile.parent, stack.layout == .accordion {
+        // A window of a stack at the root, which drops treat one by one (see stackOrSelf): the window joins that stack,
+        // instead of making a stack inside it
+        window.bind(to: stack, weight: WEIGHT_AUTO, index: INDEX_BIND_LAST)
     } else {
         guard let parentOrientation = tile.parent?.orientation else { return }
         // Opposite orientation, so that enable-normalization-opposite-orientation-for-nested-containers doesn't flip it

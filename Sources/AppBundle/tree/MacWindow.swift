@@ -191,8 +191,11 @@ final class MacWindow: Window {
                 newY = newY.coerce(in: workspaceRect.minY ... max(workspaceRect.minY, workspaceRect.maxY - windowHeight))
 
                 setAxFrame(CGPoint(x: newX, y: newY), nil)
-            case .macosNativeFullscreenWindow, .macosNativeHiddenAppWindow, .macosNativeMinimizedWindow,
-                 .macosPopupWindow, .tiling, .rootTilingContainer, .shimContainerRelation: break
+            case .macosNativeFullscreenWindow, .macosNativeHiddenAppWindow, .macosNativeMinimizedWindow:
+                // Still in the corner, only macOS hides it now. Forgetting that here left a floating window in the
+                // corner for good once its app was shown again. The next layout after it's back brings it back
+                return
+            case .macosPopupWindow, .tiling, .rootTilingContainer, .shimContainerRelation: break
         }
 
         self.prevUnhiddenProportionalPositionInsideWorkspaceRect = nil

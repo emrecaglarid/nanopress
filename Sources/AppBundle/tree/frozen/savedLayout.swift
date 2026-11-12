@@ -154,6 +154,12 @@ func adaptToDisplaySetup() {
     if setup == previous { return }
     currentSetup = setup
     let wasVisible = setupLayouts[previous]?.monitors.map(\.visibleWorkspace) ?? []
+    var workspaceBefore: [UInt32: String] = [:]
+    for workspace in Workspace.all {
+        for window in workspace.rootTilingContainer.allLeafWindowsRecursive + workspace.floatingWindows {
+            workspaceBefore[window.windowId] = workspace.name
+        }
+    }
     if let layout = setupLayouts[setup] { applySavedLayout(layout) }
 
     let visible = monitorInfos.map(\.activeWorkspace)
@@ -162,6 +168,15 @@ func adaptToDisplaySetup() {
         let orphan = Workspace.get(byName: name)
         // Least recent first, so that the most recent window is placed last and ends up on top
         for window in windowsByRecency(orphan.rootTilingContainer).reversed() + orphan.floatingWindows {
+            moveWindow(window, to: target)
+        }
+    }
+    // The saved layout puts windows back where they were the last time with these screens. One the user has moved
+    // since would land on a workspace no screen shows, and look gone. It comes to the screen instead. Windows that
+    // were on a hidden workspace already stay there
+    for workspace in Workspace.all where !visible.contains(workspace) {
+        for window in windowsByRecency(workspace.rootTilingContainer).reversed() + workspace.floatingWindows {
+            guard let before = workspaceBefore[window.windowId], before != workspace.name else { continue }
             moveWindow(window, to: target)
         }
     }

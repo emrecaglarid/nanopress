@@ -58,6 +58,8 @@ private struct FuzzRun {
     var undoPoints: [(workspace: Workspace, before: SimNode)] = []
     /// Set by drop() when the result isn't what the preview showed
     var previewMismatch: String? = nil
+    /// How thin each window's tile was before the last drop. A drop must not squeeze one below what anyone can use
+    var thicknessBeforeDrop: [UInt32: CGFloat]? = nil
 
     let main: Workspace
     let other: Workspace
@@ -78,6 +80,11 @@ private struct FuzzRun {
             unstackWhereThereIsRoom(main)
             for workspace in [main, other] { try? await workspace.layoutWorkspace() }
             log.append("   = \(shape(main.rootTilingContainer))")
+            if let before = thicknessBeforeDrop {
+                thicknessBeforeDrop = nil
+                let squeezed = tileThickness(main).filter { id, thickness in thickness < 119 && (before[id] ?? .infinity) > thickness + 2 }
+                if !squeezed.isEmpty { return report("the drop squeezed \(squeezed.keys.sorted()) into a tile too thin to use") }
+            }
             if let problem = checkInvariants() {
                 return report(problem)
             }
@@ -149,6 +156,7 @@ private struct FuzzRun {
         let drop = PendingDrop(window: dragged, workspace: main, op: .tile(targetWindowId: target.windowId, zone, level: level))
         let description = "drop \(dragged.windowId)\(dragged.isFloating ? " (floating)" : "") on \(target.windowId) \(zone) level \(level)"
         guard let preview = simulate(drop) else { return "\(description): no preview" }
+        thicknessBeforeDrop = tileThickness(main)
         applyDrop(drop)
         // The preview must be what happened
         let expected = shape(preview.rootContainer)
@@ -262,6 +270,16 @@ private struct FuzzRun {
             if let group = child as? TilingContainer, let problem = checkTree(group) { return problem }
         }
         return nil
+    }
+
+    /// The smaller side of each window's tile, for tiles in a row or column. See stackSlivers
+    func tileThickness(_ workspace: Workspace) -> [UInt32: CGFloat] {
+        var result: [UInt32: CGFloat] = [:]
+        for tile in windowsByRecency(workspace.rootTilingContainer).map(\.stackOrSelf).uniqueByIdentity() {
+            guard (tile.parent as? TilingContainer)?.layout == .tiles, let rect = tile.lastAppliedLayoutPhysicalRect else { continue }
+            for window in tile.allLeafWindowsRecursive { result[window.windowId] = min(rect.width, rect.height) }
+        }
+        return result
     }
 
     func checkFrames(_ workspace: Workspace) -> String? {

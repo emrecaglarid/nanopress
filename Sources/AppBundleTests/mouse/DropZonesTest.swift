@@ -85,6 +85,37 @@ final class DropZonesTest: XCTestCase {
         assertEquals(workspace.rootTilingContainer.layoutDescription, .h_tiles([.v_accordion([.window(1), .window(3)]), .window(2)]))
     }
 
+    /// A drop that would squeeze a tile thinner than anyone could use puts it in a stack behind its neighbour, like a
+    /// resize does. A drop that would make the dropped window itself that thin isn't offered
+    func testDropsDontLeaveSlivers() async throws {
+        let workspace = Workspace.get(byName: name)
+        let root = workspace.rootTilingContainer
+        TestWindow.new(id: 0, parent: root, adaptiveWeight: 1700)
+        TestWindow.new(id: 1, parent: root, adaptiveWeight: 220)
+        let w2 = TestWindow.new(id: 2, parent: workspace.floatingWindowsContainer)
+        try await workspace.layoutWorkspace()
+
+        // Halving the 220 point tile would leave two 110 point slivers, one of them the dropped window
+        XCTAssertNil(simulate(PendingDrop(window: w2, workspace: workspace, op: .tile(targetWindowId: 1, .split(.right)))))
+
+        // Half the screen for the dropped window squeezes window 1 to 110 points. Like a resize that squeezes a neighbour
+        // out, it goes behind the window that took its room, the biggest one next to it
+        applyDrop(PendingDrop(window: w2, workspace: workspace, op: .tile(targetWindowId: 0, .split(.right), level: 1)))
+        assertEquals(root.layoutDescription, .h_tiles([.window(0), .v_accordion([.window(2), .window(1)])]))
+        assertEquals(w2.parent?.mostRecentChild, w2)
+    }
+
+    /// Pressing on the left or top edge resizes, which moves the window too: that drag isn't a move. The title bar is
+    func testGrabbingTheLeftOrTopEdgeIsAResize() {
+        let frame = Rect(topLeftX: 100, topLeftY: 100, width: 800, height: 600)
+        XCTAssertTrue(grabsLeftOrTopEdge(CGPoint(x: 98, y: 400), of: frame)) // Just outside the left edge
+        XCTAssertTrue(grabsLeftOrTopEdge(CGPoint(x: 104, y: 400), of: frame)) // Just inside it
+        XCTAssertTrue(grabsLeftOrTopEdge(CGPoint(x: 500, y: 102), of: frame)) // The top edge
+        XCTAssertFalse(grabsLeftOrTopEdge(CGPoint(x: 500, y: 112), of: frame)) // The title bar
+        XCTAssertFalse(grabsLeftOrTopEdge(CGPoint(x: 500, y: 400), of: frame)) // The middle
+        XCTAssertFalse(grabsLeftOrTopEdge(CGPoint(x: 100, y: 900), of: frame)) // Below the window, in line with its left edge
+    }
+
     func testStackCreatesAccordion() {
         let workspace = Workspace.get(byName: name)
         let root = workspace.rootTilingContainer
@@ -176,9 +207,9 @@ final class DropZonesTest: XCTestCase {
 
         applyDrop(PendingDrop(window: w2, workspace: workspace, op: .tile(targetWindowId: 1, .split(.right))))
         assertEquals(root.layoutDescription, .h_tiles([.window(0), .window(1), .window(2)]))
-        assertEquals(w0.getWeight(.h), 1)
-        assertEquals(w1.getWeight(.h), 0.5)
-        assertEquals(w2.getWeight(.h), 0.5)
+        // In proportion: the preview lays the result out, which turns sizes into points
+        XCTAssertEqual(w1.getWeight(.h) / w0.getWeight(.h), 0.5, accuracy: 0.001)
+        XCTAssertEqual(w2.getWeight(.h) / w0.getWeight(.h), 0.5, accuracy: 0.001)
     }
 
     func testSplitAcrossParentOrientationWrapsTarget() {
@@ -228,7 +259,9 @@ final class DropZonesTest: XCTestCase {
             .window(0),
             .v_tiles([.window(1), .window(2), .window(3)]),
         ]))
-        assertEquals(w3.getWeight(.v), 2)
+        // Half of the group: as much as the two windows already in it together
+        let w1 = Window.get(byId: 1)!
+        XCTAssertEqual(w3.getWeight(.v) / w1.getWeight(.v), 2, accuracy: 0.001)
     }
 
     func testSplitScreenWrapsRoot() {

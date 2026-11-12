@@ -1,8 +1,9 @@
 import AppKit
 import Common
 
-@MainActor
-private var moveWithMouseTask: Task<(), any Error>? = nil
+/// The move being handled, and the newest one that came in meanwhile. See handleWindowMovedWithMouse
+@MainActor private var isHandlingMove = false
+@MainActor private var nextMove: (window: Window, notif: String)? = nil
 
 func movedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutableRawPointer?) {
     let windowId = ax.containingWindowId()
@@ -18,14 +19,22 @@ func movedObs(_: AXObserver, ax: AXUIElement, notif: CFString, _: UnsafeMutableR
 }
 
 /// A window moved while the left button is down: preview where it would drop
+/// Each move used to cancel the one before. Those wait on the window's frame, so during a fast drag few of them finished,
+/// and the preview only caught up when the pointer rested. Now the move in progress finishes, and then the newest one
+/// that came in meanwhile runs: the preview follows the pointer at the pace the app answers
 @MainActor
 func handleWindowMovedWithMouse(_ window: Window, token: RunSessionGuard? = .isServerEnabled, notif: String = "mouseDragged") {
     guard let token else { return }
-    moveWithMouseTask?.cancel()
-    moveWithMouseTask = Task.startUnstructured {
-        try checkCancellation()
-        try await runLightSession(.ax(notif), token) {
-            try await moveWithMouse(window)
+    nextMove = (window, notif)
+    if isHandlingMove { return }
+    isHandlingMove = true
+    Task.startUnstructured { @MainActor in
+        defer { isHandlingMove = false }
+        while let move = nextMove {
+            nextMove = nil
+            try? await runLightSession(.ax(move.notif), token) {
+                try await moveWithMouse(move.window)
+            }
         }
     }
 }

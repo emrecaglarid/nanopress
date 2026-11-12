@@ -129,7 +129,12 @@ extension SimNode {
 extension SimNode {
     /// `self` must be the workspace node
     func normalizeContainers() {
-        rootContainer.unbindEmptyAndAutoFlatten() // Beware! rootContainer may change after this line of code
+        // Until nothing changes, like Workspace.normalizeContainers
+        for _ in 0 ..< 8 {
+            let count = allNodes.count
+            rootContainer.unbindEmptyAndAutoFlatten() // Beware! rootContainer may change after this line of code
+            if allNodes.count == count { break }
+        }
         if config.enableNormalizationOppositeOrientationForNestedContainers {
             rootContainer.normalizeOppositeOrientationForNestedContainers()
         }

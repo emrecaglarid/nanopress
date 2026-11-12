@@ -1,10 +1,20 @@
 extension Workspace {
     @MainActor func normalizeContainers() {
-        rootTilingContainer.unbindEmptyAndAutoFlatten() // Beware! rootTilingContainer may change after this line of code
+        // A group is checked for a single child before its own empty groups are removed, so one pass can leave a group
+        // with one child that only the next refresh flattens, and the layout moves a refresh later. Until nothing changes
+        for _ in 0 ..< 8 {
+            let count = rootTilingContainer.nodeCount
+            rootTilingContainer.unbindEmptyAndAutoFlatten() // Beware! rootTilingContainer may change after this line of code
+            if rootTilingContainer.nodeCount == count { break }
+        }
         if config.enableNormalizationOppositeOrientationForNestedContainers {
             rootTilingContainer.normalizeOppositeOrientationForNestedContainers()
         }
     }
+}
+
+extension TreeNode {
+    @MainActor fileprivate var nodeCount: Int { 1 + children.reduce(0) { $0 + $1.nodeCount } }
 }
 
 extension TilingContainer {

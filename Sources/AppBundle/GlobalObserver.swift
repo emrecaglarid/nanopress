@@ -58,7 +58,10 @@ enum GlobalObserver {
         }
 
         NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { _ in
-            Task.startUnstructured { @MainActor in mouseDownWindowId = windowId(at: mouseLocation) }
+            Task.startUnstructured { @MainActor in
+                mouseDownLocation = mouseLocation
+                mouseDownWindowId = windowId(at: mouseLocation)
+            }
         }
         NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDragged) { _ in
             Task.startUnstructured { @MainActor in checkDraggedWindow() }
@@ -70,6 +73,7 @@ enum GlobalObserver {
             //  The end of the callback calls refreshSession
             Task.startUnstructured { @MainActor in
                 mouseDownWindowId = nil
+                mouseDownLocation = nil
                 guard let token: RunSessionGuard = .isServerEnabled else { return }
                 let drop = takePendingDrop()
                 try await resetManipulatedWithMouseIfPossible()

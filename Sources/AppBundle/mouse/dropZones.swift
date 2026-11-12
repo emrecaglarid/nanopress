@@ -85,6 +85,13 @@ func dropZoneMiddle(of rect: CGRect) -> CGRect {
     return CGRect(x: rect.midX - width / 2, y: rect.midY - height / 2, width: width, height: height)
 }
 
+/// macOS resizes from a few points around the edge. Only the left and top edges move the window when resized
+func grabsLeftOrTopEdge(_ point: CGPoint, of frame: Rect) -> Bool {
+    let alongLeft = point.y >= frame.minY - 6 && point.y <= frame.maxY + 6
+    let alongTop = point.x >= frame.minX - 6 && point.x <= frame.maxX + 6
+    return alongLeft && abs(point.x - frame.minX) <= 6 || alongTop && abs(point.y - frame.minY) <= 4
+}
+
 /// Called on every move event of a tiling or floating window dragged with the mouse. Only previews the drop; see takePendingDrop
 @MainActor
 func updateDropPreview(_ window: Window) async throws {
@@ -92,6 +99,8 @@ func updateDropPreview(_ window: Window) async throws {
     // stay on screen, and the next click anywhere would drop. Checked again after every wait for the window's frame
     guard isLeftMouseButtonDown else { return }
     if dragSession?.windowId != window.windowId {
+        // The frame before the drag: the tile's, or for a floating window its frame now, at the first move
+        let frameAtStart = window.lastAppliedLayoutPhysicalRect
         // The window's own size, not its tile's: terminals and windows with a minimum size don't fill their tile exactly,
         // and compared with the tile, every drag of theirs counted as a resize and never showed where it could go
         let startRect = try await window.getAxRect(.cancellable)
@@ -103,6 +112,20 @@ func updateDropPreview(_ window: Window) async throws {
             : false
         guard isLeftMouseButtonDown else { return }
         dragSession = DragSession(windowId: window.windowId, initialSize: initialSize, isDialog: isDialog, origin: dragOrigin(window), floatingStartRect: floatingStartRect)
+        // Pressed on the left or top edge: a resize, which moves the window too. Known from the start, so the window
+        // keeps its tile for resizeWithMouse, and no drop preview flashes before the size changes enough to tell
+        if let point = mouseDownLocation, let frame = frameAtStart ?? startRect, grabsLeftOrTopEdge(point, of: frame) {
+            dragSession?.isResize = true
+        }
+    }
+    if dragSession?.isResize == true {
+        // A drop previewed before the resize was recognized goes away. The overlay may show the resize's own preview
+        if pendingDrop != nil {
+            pendingDrop = nil
+            DropZoneOverlay.shared.hide()
+        }
+        currentlyManipulatedWithMouseWindowId = window.windowId
+        return
     }
     currentlyManipulatedWithMouseWindowId = window.windowId
     window.lastAppliedLayoutPhysicalRect = nil
@@ -399,7 +422,50 @@ func simulate(_ drop: PendingDrop) -> SimNode? {
             }
     }
     sim.normalizeContainers()
-    return sim
+    return stackSlivers(sim, on: drop.workspace, dropped: drop.window.windowId, before: tileThickness(of: drop.workspace)) ? sim : nil
+}
+
+/// How thin each window's tile is now, by window id: its smaller side. A drop leaves slivers that were there before
+/// as they are, and cleans up only after itself
+@MainActor
+private func tileThickness(of workspace: Workspace) -> [UInt32: CGFloat] {
+    let sim = SimNode.snapshot(workspace)
+    layout(sim, workspace)
+    var result: [UInt32: CGFloat] = [:]
+    for tile in sim.windowsByRecency.map(\.stackOrSelf).uniqueByIdentity() {
+        guard let rect = tile.rect else { continue }
+        for window in tile.allWindows { result[window.windowId.orDie()] = min(rect.width, rect.height) }
+    }
+    return result
+}
+
+/// Tiles in a row or column thinner than squeezeMinimum that the drop made thinner than they were
+@MainActor
+private func newSliverTiles(_ sim: SimNode, before: [UInt32: CGFloat]) -> [SimNode] {
+    sim.windowsByRecency.map(\.stackOrSelf).uniqueByIdentity().filter { tile in
+        guard let rect = tile.rect, tile.parent?.layout == .tiles else { return false }
+        let thickness = min(rect.width, rect.height)
+        guard thickness < squeezeMinimum else { return false }
+        return tile.allWindows.contains { window in (before[window.windowId.orDie()] ?? .infinity) > thickness + 1 }
+    }
+}
+
+/// Splitting again and again halves a tile down to a sliver no one can see or use. Like a resize that squeezes a tile
+/// out (see stackSqueezedTiles), a drop puts a tile it makes thinner than squeezeMinimum into a stack behind its biggest
+/// neighbour. False if the dropped window itself would be the sliver: then the drop isn't offered
+@MainActor
+private func stackSlivers(_ sim: SimNode, on workspace: Workspace, dropped: UInt32, before: [UInt32: CGFloat]) -> Bool {
+    for _ in 0 ..< 32 { // Each pass stacks one tile, so this ends. The bound is a guard
+        layout(sim, workspace)
+        guard let sliver = newSliverTiles(sim, before: before).first else { return true }
+        if sliver.allWindows.contains(where: { $0.windowId == dropped }) { return false }
+        guard let parent = sliver.parent, let index = sliver.ownIndex,
+              let neighbour = [index - 1, index + 1].compactMap({ parent.children.getOrNil(atIndex: $0) }).max(by: { $0.weight < $1.weight }),
+              let front = neighbour.mostRecentWindowRecursive
+        else { return true }
+        _ = stack(sliver.allWindows, behind: front, sim)
+    }
+    return true
 }
 
 /// What a resize turned into a stack: `behind` went behind `front`

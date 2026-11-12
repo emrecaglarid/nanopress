@@ -4,14 +4,12 @@
 /*
 
 # Top level dirs
-!/.bundle
 !/.github
 !/Sources
 !/axDumps
 !/design
 !/dev-docs
 !/docs
-!/grammar
 !/legal
 !/resources
 !/script
@@ -23,7 +21,6 @@
 !/.gitattributes
 !/.gitignore
 !/CONTRIBUTING.md
-!/Gemfile
 !/Package.resolved
 !/Package.swift
 !/README.md

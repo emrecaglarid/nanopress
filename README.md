@@ -6,7 +6,7 @@
 
 <p align="center">A tiling window manager for macOS that you use with the mouse.</p>
 
-nanopress keeps your windows side by side, so none of them hides another. You arrange them by dragging: windows onto each other, tabs out of stacks, tiles around a minimap in the menu bar. It's a fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace), and AeroSpace's keyboard shortcuts, commands and config file all still work.
+nanopress keeps your windows side by side, so none of them hides another. You arrange them by dragging: windows onto each other, tabs out of stacks, tiles around a minimap in the menu bar. It's a fork of [AeroSpace](https://github.com/nikitabobko/AeroSpace), without AeroSpace's keyboard shortcuts, commands and config file.
 
 ## Drag a window where you want it
 
@@ -78,10 +78,6 @@ brew install --cask emrecaglarid/tap/nanopress
 Open nanopress from Applications and give it Accessibility access when macOS asks. It needs that to move windows.
 
 You can also download it from [Releases](https://github.com/emrecaglarid/nanopress/releases). nanopress isn't notarized by Apple yet, so a downloaded copy needs one extra step: open it once, then go to System Settings ▸ Privacy & Security and click Open Anyway.
-
-## Keyboard and config
-
-The config file is `~/.nanopress.toml` or `~/.config/nanopress/nanopress.toml`. Without one, nanopress reads your AeroSpace config. [AeroSpace's guide](https://nikitabobko.github.io/AeroSpace/guide) explains workspaces, key bindings and commands; use `nanopress` where it says `aerospace`.
 
 ## Building
 

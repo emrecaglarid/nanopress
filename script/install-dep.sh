@@ -3,19 +3,15 @@ cd "$(dirname "$0")/.."
 source ./script/setup.sh
 
 all=0
-complgen=0
 swiftlint=0
 swiftformat=0
 xcodegen=0
-bundler=0
 periphery=0
 while test $# -gt 0; do
     case $1 in
-        --complgen) complgen=1; shift ;;
         --swiftlint) swiftlint=1; shift ;;
         --xcodegen) xcodegen=1; shift ;;
         --swiftformat) swiftformat=1; shift ;;
-        --bundler) bundler=1; shift ;;
         --periphery) periphery=1; shift ;;
         --all) all=1; shift ;;
         *) echo "Unknown option $1"; exit 1 ;;
@@ -29,24 +25,6 @@ create-marker() {
     rm -rf "$dir" && mkdir -p "$dir"
     touch "$1"
 }
-
-if test $all == 1 || test $bundler == 1; then
-    marker=$(get-marker bundler "$(cat ./Gemfile)" "$(cat ./.bundle/*)")
-    if ! test -f "$marker"; then
-        bundler install
-        create-marker "$marker"
-    fi
-fi
-
-if test $all == 1 || test $complgen == 1; then
-    # https://github.com/adaszko/complgen/releases
-    complgen_rev=cacb3970eb
-    marker=$(get-marker complgen $complgen_rev)
-    if ! test -f "$marker"; then
-        cargo install --git https://github.com/adaszko/complgen --rev $complgen_rev --root ./.deps/cargo-root
-        create-marker "$marker"
-    fi
-fi
 
 lazy-download-zip-and-link-bin() {
     artifact_name=$1

@@ -44,12 +44,7 @@ if /bin/test -z "${NUKE_PATH:-}"; then
     /bin/mkdir -p .deps/bin
 
     add-optional-dep-to-bin bash
-    add-optional-dep-to-bin fish # build-shell-completion.sh
-    add-optional-dep-to-bin rustc # build-shell-completion.sh
-    add-optional-dep-to-bin cargo # build-shell-completion.sh
     add-optional-dep-to-bin brew # install-from-sources.sh
-    add-optional-dep-to-bin bundle # build-docs.sh
-    add-optional-dep-to-bin bundler # build-docs.sh
     add-optional-dep-to-bin xcbeautify # build-release.sh
     add-optional-dep-to-bin git
     add-swift-to-bin

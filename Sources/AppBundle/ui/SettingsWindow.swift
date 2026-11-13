@@ -251,7 +251,7 @@ private struct SettingsView: View {
             }
             HStack(spacing: 12) {
                 Button("Check for Updates") { Task { await updates.check() } }
-                    .disabled(updates.state == .checking)
+                    .disabled(updates.isBusy)
                 updateStatus
             }
             HStack(spacing: 16) {
@@ -268,61 +268,20 @@ private struct SettingsView: View {
             case .idle: EmptyView()
             case .checking: ProgressView().controlSize(.small)
             case .upToDate: Text("You're up to date.").font(.system(size: 11)).foregroundStyle(.secondary)
-            case .available(let version, let url):
-                Link("Download \(version)", destination: url).font(.system(size: 11))
-            case .failed(let reason): Text(reason).font(.system(size: 11)).foregroundStyle(.secondary)
+            case .available(let release):
+                if UpdateChecker.canInstallInPlace {
+                    Button("Update to \(release.version)") { Task { await updates.install(release) } }
+                    Link("What's new", destination: release.page).font(.system(size: 11))
+                } else {
+                    Link("Download \(release.version)", destination: release.page).font(.system(size: 11))
+                }
+            case .installing(let step):
+                ProgressView().controlSize(.small)
+                Text(step).font(.system(size: 11)).foregroundStyle(.secondary)
+            case .failed(let reason, let page):
+                Text(reason).font(.system(size: 11)).foregroundStyle(.secondary)
+                if let page { Link("Download it from GitHub", destination: page).font(.system(size: 11)) }
         }
-    }
-}
-
-private let nanopressRepo = URL(string: "https://github.com/emrecaglarid/nanopress").orDie()
-
-/// Asks GitHub for the latest release of the fork. There's no updater: a newer release links to its download page
-@MainActor
-private final class UpdateChecker: ObservableObject {
-    enum State: Equatable {
-        case idle, checking, upToDate
-        case available(String, URL)
-        case failed(String)
-    }
-
-    @Published private(set) var state = State.idle
-
-    private struct Release: Decodable {
-        let tag_name: String
-        let html_url: URL
-    }
-
-    func check() async {
-        state = .checking
-        let api = URL(string: "https://api.github.com/repos/emrecaglarid/nanopress/releases/latest").orDie()
-        do {
-            let (data, response) = try await URLSession.shared.data(from: api)
-            if (response as? HTTPURLResponse)?.statusCode == 404 {
-                state = .failed("No releases published yet.")
-                return
-            }
-            let release = try JSONDecoder().decode(Release.self, from: data)
-            let latest = release.tag_name.hasPrefix("v") ? String(release.tag_name.dropFirst()) : release.tag_name
-            state = isNewer(latest, than: aeroSpaceAppVersion) ? .available(latest, release.html_url) : .upToDate
-        } catch {
-            state = .failed("Couldn't reach GitHub. Check your connection and try again.")
-        }
-    }
-
-    /// Compares the numbers of "1.2.3". A snapshot build counts as older than any release
-    private func isNewer(_ latest: String, than current: String) -> Bool {
-        func numbers(_ version: String) -> [Int] {
-            version.split(separator: "-")[0].split(separator: ".").map { Int($0) ?? 0 }
-        }
-        let a = numbers(latest)
-        let b = numbers(current)
-        for index in 0 ..< max(a.count, b.count) {
-            let x = a.getOrNil(atIndex: index) ?? 0
-            let y = b.getOrNil(atIndex: index) ?? 0
-            if x != y { return x > y }
-        }
-        return current.contains("SNAPSHOT") && !latest.contains("SNAPSHOT")
     }
 }
 

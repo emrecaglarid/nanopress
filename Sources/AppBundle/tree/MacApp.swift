@@ -274,8 +274,27 @@ final class MacApp: AbstractApp {
         return try await withThrowingTaskGroup(of: (pid_t, [UInt32]).self, returning: [MacApp: [UInt32]].self) { group in
             func refreshTheApp(_ nsApp: NSRunningApplication) {
                 group.addTask { @Sendable @MainActor in
-                    guard let app = try await MacApp.getOrRegister(nsApp) else { return (nsApp.processIdentifier, []) }
-                    return (nsApp.processIdentifier, try await app.refreshAndGetAliveWindowIds(frontmostAppBundleId: frontmostAppBundleId))
+                    let pid = nsApp.processIdentifier
+                    // The windows already known for an app that doesn't answer: they stay, not taken for closed
+                    let known = { MacWindow.allWindows.filter { $0.macApp.pid == pid }.map(\.windowId) }
+                    // Still busy with an earlier refresh: not asked again until that one is over
+                    if appsBeingAsked.contains(pid) { return (pid, known()) }
+                    appsBeingAsked.insert(pid)
+                    let answer = await answerWithin(appAnswerDeadline) {
+                        defer { appsBeingAsked.remove(pid) }
+                        guard let app = try await MacApp.getOrRegister(nsApp) else { return [] }
+                        return try await app.refreshAndGetAliveWindowIds(frontmostAppBundleId: frontmostAppBundleId)
+                    }
+                    switch answer {
+                        case .windows(let windowIds): return (pid, windowIds)
+                        case .failed:
+                            try checkCancellation()
+                            return (pid, [])
+                        case .tooSlow:
+                            let name = nsApp.localizedName ?? nsApp.bundleIdentifier ?? "pid \(pid)"
+                            startupLog.notice("\(name, privacy: .public) didn't answer within \(appAnswerDeadline.milliseconds, privacy: .public) ms. Its windows are left as they are")
+                            return (pid, known())
+                    }
                 }
             }
             // Register new apps
@@ -440,4 +459,46 @@ private func disableAnimations<T>(app: AXUIElement, _ job: RunLoopJob, _ body: (
     }
     try job.checkCancellation()
     return try body()
+}
+
+// MARK: Apps that don't answer
+
+/// Asking an app for its windows waited for every app, and an app that never answered held up every refresh. At
+/// startup, that meant nanopress never finished starting. Now an app gets this long, and the others go on without it
+private let appAnswerDeadline: Duration = .seconds(5)
+/// Apps whose windows are being asked for, so that a slow app isn't asked again on every refresh meanwhile
+@MainActor private var appsBeingAsked: Set<pid_t> = []
+
+enum AppAnswer: Equatable {
+    case windows([UInt32])
+    case failed
+    case tooSlow
+}
+
+/// The answer of `ask`, or `.tooSlow` once `deadline` is over. A late answer is dropped. `ask` keeps running until it's
+/// done: the AX call it waits on can't be stopped
+@MainActor
+func answerWithin(_ deadline: Duration, _ ask: @escaping @MainActor () async throws -> [UInt32]) async -> AppAnswer {
+    let once = AnswerOnce()
+    return await withCheckedContinuation { continuation in
+        once.continuation = continuation
+        Task.startUnstructured { @MainActor in
+            let answer: AppAnswer = if let windowIds = try? await ask() { .windows(windowIds) } else { .failed }
+            once.resume(answer)
+        }
+        Task.startUnstructured { @MainActor in
+            try? await Task.sleep(for: deadline)
+            once.resume(.tooSlow)
+        }
+    }
+}
+
+@MainActor
+private final class AnswerOnce {
+    var continuation: CheckedContinuation<AppAnswer, Never>? = nil
+
+    func resume(_ answer: AppAnswer) {
+        continuation?.resume(returning: answer)
+        continuation = nil
+    }
 }

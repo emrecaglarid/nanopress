@@ -76,7 +76,7 @@ private enum SettingsTab: CaseIterable {
 private struct SettingsView: View {
     let tab: SettingsTab
     @ObservedObject private var settings = NanopressSettings.shared
-    @StateObject private var updates = UpdateChecker()
+    @ObservedObject private var updates = UpdateChecker.shared
 
     var body: some View {
         Form {

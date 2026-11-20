@@ -34,6 +34,7 @@ import Foundation
         try await runLightSession(.startup, .forceRun) {
             restoreSavedLayout()
         }
+        UpdateChecker.shared.checkPeriodically()
         startupLog.notice("Started in \((ContinuousClock.now - startupStart).milliseconds, privacy: .public) ms")
     }
 }

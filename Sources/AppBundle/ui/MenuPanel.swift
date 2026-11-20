@@ -16,6 +16,7 @@ struct MenuPanel: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var lastChange = LastChange.shared
     @ObservedObject private var settings = NanopressSettings.shared
+    @ObservedObject private var updates = UpdateChecker.shared
     @State private var contentHeight: CGFloat = 0
 
     var body: some View {
@@ -25,6 +26,7 @@ struct MenuPanel: View {
                 .padding(.vertical, 10)
             Divider()
             VStack(alignment: .leading, spacing: sectionSpacing) {
+                updateRow
                 if viewModel.axPermissionStatus == .granted {
                     if viewModel.isEnabled {
                         if let change = lastChange.entry { lastChangeRow(change) }
@@ -124,6 +126,57 @@ struct MenuPanel: View {
         .padding(.horizontal, 10)
         .frame(height: 32)
         .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    /// An update found by the periodic check, while it's offered, installed, or if installing it failed
+    @ViewBuilder
+    private var updateRow: some View {
+        switch updates.state {
+            case .available(let release):
+                updateTile {
+                    Text("nanopress \(release.version) is available")
+                        .font(.system(size: 12, weight: .medium))
+                    Link("What's new", destination: release.page).font(.system(size: 12))
+                    Spacer(minLength: 8)
+                    if UpdateChecker.canInstallInPlace {
+                        Button("Update") { Task { await updates.install(release) } }
+                            .controlSize(.small)
+                            .buttonStyle(.borderedProminent)
+                    } else {
+                        Link("Download", destination: release.page).font(.system(size: 12))
+                    }
+                }
+            case .installing(let step):
+                updateTile {
+                    ProgressView().controlSize(.small)
+                    Text(step).font(.system(size: 12)).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                }
+            case .failed(let reason, let page?):
+                updateTile {
+                    Text(reason)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    Link("Download", destination: page).font(.system(size: 12))
+                }
+            default:
+                EmptyView()
+        }
+    }
+
+    private func updateTile(@ViewBuilder _ content: () -> some View) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 13))
+                .foregroundStyle(Color.accentColor)
+            content()
+        }
+        .padding(.horizontal, 10)
+        .frame(minHeight: 32)
+        .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     /// No title: the map is what the panel is for

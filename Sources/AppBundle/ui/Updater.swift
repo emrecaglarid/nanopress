@@ -9,6 +9,9 @@ let nanopressRepo = URL(string: "https://github.com/emrecaglarid/nanopress").orD
 /// place, like an app that isn't in a folder it may write to, falls back to the release page
 @MainActor
 final class UpdateChecker: ObservableObject {
+    /// The menu bar icon, the panel and Settings all show this one
+    static let shared = UpdateChecker()
+
     struct Release: Equatable {
         let version: String
         let page: URL
@@ -47,13 +50,28 @@ final class UpdateChecker: ObservableObject {
         }
     }
 
-    func check() async {
-        state = .checking
+    /// A minute after launch, then every few hours. A badge on the menu bar icon and a tile in the panel show an update
+    func checkPeriodically() {
+        Task.startUnstructured { @MainActor in
+            try? await Task.sleep(for: .seconds(60))
+            while true {
+                await self.check(quietly: true)
+                try? await Task.sleep(for: .seconds(6 * 3600))
+            }
+        }
+    }
+
+    /// Quietly: no spinner, and a failure, like being offline, leaves the state as it was. The check from Settings
+    /// shows both
+    func check(quietly: Bool = false) async {
+        if quietly, isBusy { return }
+        let before = state
+        if !quietly { state = .checking }
         let api = URL(string: "https://api.github.com/repos/emrecaglarid/nanopress/releases/latest").orDie()
         do {
             let (data, response) = try await URLSession.shared.data(from: api)
             if (response as? HTTPURLResponse)?.statusCode == 404 {
-                state = .failed("No releases published yet.", nil)
+                state = quietly ? before : .failed("No releases published yet.", nil)
                 return
             }
             let json = try JSONDecoder().decode(ReleaseJson.self, from: data)
@@ -62,8 +80,12 @@ final class UpdateChecker: ObservableObject {
             let release = Release(version: version, page: json.html_url, zip: zip?.browser_download_url, digest: zip?.digest)
             state = isNewerVersion(version, than: aeroSpaceAppVersion) ? .available(release) : .upToDate
         } catch {
-            state = .failed("Couldn't reach GitHub. Check your connection and try again.", nil)
+            state = quietly ? before : .failed("Couldn't reach GitHub. Check your connection and try again.", nil)
         }
+    }
+
+    var availableRelease: Release? {
+        if case .available(let release) = state { release } else { nil }
     }
 
     /// Whether this copy can replace itself. A debug build runs from the build folder, not from an app

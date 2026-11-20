@@ -3,8 +3,14 @@ cd "$(dirname "$0")"
 source ./script/setup.sh
 
 build_version="0.0.0-SNAPSHOT"
-# Unsigned: an ad-hoc signature. The Homebrew cask removes the quarantine flag on install, like AeroSpace's
+# Signed with a self-signed certificate in the login keychain, the same one for every release. macOS keeps Screen
+# Recording and Accessibility for an app whose signature matches the same certificate, so an update doesn't ask again.
+# An ad-hoc signature ("-") is new with every build, and lost both. Without the certificate, ad hoc as before. The
+# Homebrew cask and the in-app updater remove the quarantine flag on install, like AeroSpace's
 codesign_identity="-"
+if security find-certificate -c "nanopress Self-Signed" >/dev/null 2>&1; then
+    codesign_identity="nanopress Self-Signed"
+fi
 while test $# -gt 0; do
     case $1 in
         --build-version) build_version="$2"; shift 2;;

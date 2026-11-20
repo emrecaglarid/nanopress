@@ -122,10 +122,18 @@ private func refresh() async throws {
     let mapping = try await MacApp.refreshAllAndGetAliveWindowIds(frontmostAppBundleId: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
     let aliveWindowIds = mapping.values.flatMap(id).toSet()
 
-    for window in MacWindow.allWindows {
-        if !aliveWindowIds.contains(window.windowId) {
-            window.garbageCollect(skipClosedWindowsCache: false)
+    let isWaking = windowsKeptUntil.map { ContinuousClock.now < $0 } ?? false
+    var kept: [String] = []
+    for window in MacWindow.allWindows where !aliveWindowIds.contains(window.windowId) {
+        // Right after wake, apps answer late and their windows look closed. Only a quit app's windows go
+        if isWaking, let macWindow = window as? MacWindow, !macWindow.macApp.nsApp.isTerminated {
+            kept.append(macWindow.macApp.name ?? "an app")
+            continue
         }
+        window.garbageCollect(skipClosedWindowsCache: false)
+    }
+    if !kept.isEmpty {
+        startupLog.notice("Waking up: kept \(kept.count, privacy: .public) windows that didn't answer yet, of \(Set(kept).sorted().joined(separator: ", "), privacy: .public)")
     }
     let prefetchStart = ContinuousClock.now
     let timings = await prefetchNewWindows(mapping)
@@ -227,4 +235,22 @@ let startupLog = Logger(subsystem: "io.github.emrecaglarid.nanopress", category:
 
 extension Duration {
     var milliseconds: Int { Int(components.seconds * 1000 + components.attoseconds / 1_000_000_000_000_000) }
+}
+
+/// Until then, a window that looks closed stays in the layout unless its app quit. See keepWindowsAfterWake
+@MainActor var windowsKeptUntil: ContinuousClock.Instant? = nil
+/// How long apps get to answer again after the Mac, its screens or the session wake up
+let wakeGracePeriod: Duration = .seconds(15)
+
+/// After sleep, apps take a few seconds to answer again, and their windows looked closed: nanopress dropped them from
+/// the layout, and they came back as new, floating windows. Windows are kept for a while instead. A refresh once it's
+/// over lets go of the windows that really closed meanwhile
+@MainActor
+func keepWindowsAfterWake(_ reason: String) {
+    windowsKeptUntil = .now + wakeGracePeriod
+    startupLog.notice("\(reason, privacy: .public): windows are kept for \(wakeGracePeriod.milliseconds / 1000, privacy: .public) s while apps wake up")
+    Task.startUnstructured { @MainActor in
+        try? await Task.sleep(for: wakeGracePeriod + .milliseconds(500))
+        if TrayMenuModel.shared.isEnabled { scheduleCancellableCompleteRefreshSession(.ax("wakeGracePeriodOver")) }
+    }
 }

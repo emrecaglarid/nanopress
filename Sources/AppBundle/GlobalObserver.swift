@@ -46,6 +46,15 @@ enum GlobalObserver {
     @MainActor
     static func initObserver() {
         let nc = NSWorkspace.shared.notificationCenter
+        for (name, reason) in [
+            (NSWorkspace.didWakeNotification, "Woke from sleep"),
+            (NSWorkspace.screensDidWakeNotification, "Screens woke"),
+            (NSWorkspace.sessionDidBecomeActiveNotification, "Session became active"),
+        ] {
+            nc.addObserver(forName: name, object: nil, queue: .main) { _ in
+                Task.startUnstructured { @MainActor in keepWindowsAfterWake(reason) }
+            }
+        }
         nc.addObserver(forName: NSWorkspace.didLaunchApplicationNotification, object: nil, queue: .main, using: onNotif)
         nc.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main, using: onNotif)
         nc.addObserver(forName: NSWorkspace.didHideApplicationNotification, object: nil, queue: .main, using: onHideApp)

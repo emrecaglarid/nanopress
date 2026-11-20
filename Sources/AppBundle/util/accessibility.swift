@@ -342,6 +342,17 @@ private func windowOrNil(_ any: Any?) -> WindowIdAndAxUiElementMock? {
 }
 
 extension AXUIElement: AxUiElementMock {
+    /// The app's windows, or nil when the app didn't answer: busy, or still waking up after sleep. Ax.windowsAttr can't
+    /// tell that apart from an app with no windows
+    func windowsIfAnswering() -> [WindowIdAndAxUiElement]? {
+        var raw: AnyObject?
+        switch unsafe AXUIElementCopyAttributeValue(self, kAXWindowsAttribute as CFString, &raw) {
+            case .success: return raw.flatMap(Ax.windowsAttr.getter) ?? []
+            case .cannotComplete: return nil
+            default: return []
+        }
+    }
+
     func get<Attr: ReadableAttr>(_ attr: Attr) -> Attr.T? {
         let state = signposter.beginInterval(#function, "attr: \(attr.key) axTaskLocalAppThreadToken: \(axTaskLocalAppThreadToken?.idForDebug)")
         defer { signposter.endInterval(#function, state) }

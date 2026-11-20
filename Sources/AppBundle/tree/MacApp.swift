@@ -332,6 +332,9 @@ final class MacApp: AbstractApp {
         let (alive, dead) = try await thread.runInLoop(.cancellable) { [nsApp, windows, axApp] (job) -> ([UInt32], [UInt32]) in
             var alive: [UInt32: AxWindow] = windows.threadGuarded
             var dead = [UInt32: AxWindow]()
+            // An app that doesn't answer, like one still waking up after sleep, can't say which of its windows still
+            // exist either. Its windows were all taken for closed, came back as new windows a moment later, and floated
+            guard let listed = axApp.threadGuarded.windowsIfAnswering() else { return (Array(alive.keys), []) }
             // Second line of defence against lock screen. See the first line of defence: closedWindowsCache
             // Second and third lines of defence are technically needed only to avoid potential flickering
             if frontmostAppBundleId != lockScreenAppBundleId {
@@ -341,7 +344,7 @@ final class MacApp: AbstractApp {
                 }
             }
 
-            for (id, window) in axApp.threadGuarded.get(Ax.windowsAttr) ?? [] {
+            for (id, window) in listed {
                 try job.checkCancellation()
                 try alive.getOrRegisterAxWindow(windowId: id, window, nsApp, job)
             }
